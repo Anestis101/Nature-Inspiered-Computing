@@ -80,7 +80,7 @@ class Ant {
       }
     } else if (this.state === "returning") {
       this.moveTowards(this.colony.nest);
-      pheromoneGrid.deposit(this.pos.x, this.pos.y, this.colony.genome.pheromoneStrength);
+      pheromoneGrid.deposit(this.pos.x, this.pos.y, this.colony.genome.pheromoneStrength, this.colony.id);
       if (this.pos.dist(this.colony.nest) < 10) {
         this.colony.addFood(this.foodCarried);
         this.foodCarried = 0;
@@ -104,15 +104,30 @@ class Ant {
   }
   
   randomWalk() {
-    let randomVec = p5.Vector.random2D();
-    // Increase multiplier to encourage exploration (adjust if needed)
-    randomVec.mult(1.0);
-    this.vel.add(randomVec);
+    // Instead of pure random, bias toward pheromone gradient
+    let sensingDistance = 10; // how far to look
+    let left = p5.Vector.fromAngle(this.vel.heading() - PI / 4).setMag(sensingDistance);
+    let right = p5.Vector.fromAngle(this.vel.heading() + PI / 4).setMag(sensingDistance);
+  
+    let leftSense = pheromoneGrid.getIntensity(this.pos.x + left.x, this.pos.y + left.y, this.colony.id);
+    let rightSense = pheromoneGrid.getIntensity(this.pos.x + right.x, this.pos.y + right.y, this.colony.id);
+  
+    let turnAmount = 0;
+    if (leftSense > rightSense) {
+      turnAmount = -0.3; // turn left
+    } else if (rightSense > leftSense) {
+      turnAmount = 0.3;  // turn right
+    } else {
+      turnAmount = random(-0.2, 0.2); // random small wandering
+    }
+  
+    this.vel.rotate(turnAmount);
     this.vel.limit(this.speed);
   }
   
+  
   findFood() {
-    let detectionRadius = 100; // Increased detection radius
+    let detectionRadius = 50; // Increased detection radius
     let closest = null;
     let record = Infinity;
     for (let food of foods) {

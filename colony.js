@@ -2,6 +2,7 @@
 
 class Colony {
   constructor(nestX, nestY) {
+    this.id = Colony.nextID++;
     this.nest = createVector(nestX, nestY);
     this.ants = [];
     
@@ -120,3 +121,5 @@ class Colony {
     };
   }
 }
+Colony.nextID = 0;
+
