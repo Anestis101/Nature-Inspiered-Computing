@@ -22,7 +22,6 @@ class Ant {
     this.foodCarried = 0;
   }
   checkForConflicts() {
-    // Define a conflict threshold distance (e.g., 5 pixels)
     let conflictThreshold = 5;
     // Loop through all colonies (global array 'colonies')
     for (let col of colonies) {
