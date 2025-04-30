@@ -1,86 +1,71 @@
+// ant.js
+
 class Ant {
   constructor(x, y, colony) {
-    this.alive = true;
-    this.pos = createVector(x, y);
-    this.vel = p5.Vector.random2D();
-    this.colony = colony;
-    // Set normal speed from the colony's genome
-    this.normalSpeed = this.colony.genome.antSpeed;
-    // When carrying food, ant moves slower (e.g. 50% speed)
+    this.alive       = true;
+    this.pos         = createVector(x, y);
+    this.vel         = p5.Vector.random2D();
+    this.colony      = colony;
+
+    // Speeds
+    this.normalSpeed   = colony.genome.antSpeed;
     this.carryingSpeed = this.normalSpeed * 0.5;
-    // Start with normal speed
-    this.speed = this.normalSpeed;
-    
-    // Energy properties:
-    this.maxEnergy = 100;         // Maximum energy
-    this.energy = this.maxEnergy; // Start fully charged
-    // Energy consumption multiplier (increases when carrying food)
-    this.consumptionMultiplier = 1; // Normal consumption
-    
-    // States: "searching" for food or "returning" to nest
-    this.state = "searching";
+    this.speed         = this.normalSpeed;
+
+    // Energy
+    this.maxEnergy             = 100;
+    this.energy                = this.maxEnergy;
+    this.consumptionMultiplier = 1;
+
+    // State: only "searching" or "returning" now
+    this.state       = "searching";
     this.foodCarried = 0;
+
+    // How far ahead to sample pheromone
+    this.senseDistance = 20;
   }
-  checkForConflicts() {
-    // Define a conflict threshold distance (e.g., 5 pixels)
-    let conflictThreshold = 5;
-    // Loop through all colonies (global array 'colonies')
-    for (let col of colonies) {
-      if (col !== this.colony) {
-        for (let other of col.ants) {
-          // Make sure we don't conflict with ourselves
-          if (other.alive && this.pos.dist(other.pos) < conflictThreshold) {
-            // Simple resolution: the ant with lower energy dies (set alive = false)
-            if (this.energy < other.energy) {
-              this.alive = false;
-              return; // Exit early since this ant is now "dead"
-            } else {
-              other.alive = false;
-            }
-          }
-        }
-      }
-    }
-  }
-  
+
   update() {
-    // Consume energy each frame (adjust energy loss as needed)
-    let energyLoss = 0.2 * this.consumptionMultiplier;
-    this.energy -= energyLoss;
-    
-    // If energy is too low while carrying food, drop it on the map
+    // 1) drain energy
+    this.energy -= 0.2 * this.consumptionMultiplier;
+
+    // 2) if starving while carrying, drop & head home
     if (this.energy < 20 && this.foodCarried > 0) {
-      // Drop the carried food at the ant's current position
-      // The new Food object will have an amount equal to the dropped food
       foods.push(new Food(this.pos.x, this.pos.y, this.foodCarried));
       this.foodCarried = 0;
-      // Reset speed and consumption multiplier back to normal since the ant is unburdened now
       this.speed = this.normalSpeed;
       this.consumptionMultiplier = 1;
-      // Change state to "returning" so the ant goes back to the nest to recharge
       this.state = "returning";
     }
-    
+
+    // 3) behavior by state
     if (this.state === "searching") {
+      // look for food
       let target = this.findFood();
       if (target) {
         this.moveTowards(target.pos);
         if (this.pos.dist(target.pos) < 5) {
-          // Instead of picking up all food at once, pick 1 unit (as before)
           this.foodCarried = target.pickup();
           if (this.foodCarried > 0) {
             this.state = "returning";
-            // Adjust speed and energy consumption when carrying food
             this.speed = this.carryingSpeed;
             this.consumptionMultiplier = 2;
           }
         }
       } else {
-        this.randomWalk();
+        // no food: follow pheromone or explore
+        if (!this.followTrail()) {
+          this.explore();
+        }
       }
+
     } else if (this.state === "returning") {
+      // return to nest & deposit pheromone
       this.moveTowards(this.colony.nest);
-      pheromoneGrid.deposit(this.pos.x, this.pos.y, this.colony.genome.pheromoneStrength);
+      pheromoneGrid.deposit(
+        this.pos.x, this.pos.y,
+        this.colony.genome.pheromoneStrength
+      );
       if (this.pos.dist(this.colony.nest) < 10) {
         this.colony.addFood(this.foodCarried);
         this.foodCarried = 0;
@@ -90,103 +75,116 @@ class Ant {
         this.consumptionMultiplier = 1;
       }
     }
-    
+
+    // 4) move & wrap
     this.pos.add(this.vel.copy().setMag(this.speed));
     this.screenWrap();
-    this.checkForConflicts();
+
+    // 5) NO MORE conflict deaths
+    // this.checkForConflicts();  ← simply do nothing now
   }
-  
-  
+
   moveTowards(target) {
-    let desired = p5.Vector.sub(target, this.pos);
-    desired.setMag(this.speed);
+    let desired = p5.Vector.sub(target, this.pos).setMag(this.speed);
     this.vel.lerp(desired, 0.1);
   }
-  
-  randomWalk() {
-    let randomVec = p5.Vector.random2D();
-    // Increase multiplier to encourage exploration (adjust if needed)
-    randomVec.mult(1.0);
-    this.vel.add(randomVec);
-    this.vel.limit(this.speed);
-  }
-  
+
   findFood() {
-    let detectionRadius = 100; // Increased detection radius
-    let closest = null;
-    let record = Infinity;
-    for (let food of foods) {
-      let d = this.pos.dist(food.pos);
-      if (d < detectionRadius && d < record && food.amount > 0) {
+    let record = Infinity, closest = null;
+    for (let f of foods) {
+      let d = this.pos.dist(f.pos);
+      if (d < 100 && d < record && f.amount > 0) {
         record = d;
-        closest = food;
+        closest = f;
       }
     }
     return closest;
   }
-  
-  screenWrap() {
-    if (this.pos.x < 0) this.pos.x = width;
-    if (this.pos.x > width) this.pos.x = 0;
-    if (this.pos.y < 0) this.pos.y = height;
-    if (this.pos.y > height) this.pos.y = 0;
+
+  sensePheromone() {
+    let best = { vec: null, val: 0 };
+    let base = this.vel.heading();
+    for (let off of [0, -PI / 4, PI / 4]) {
+      let dir = p5.Vector.fromAngle(base + off).setMag(this.senseDistance);
+      let ix = this.pos.x + dir.x, iy = this.pos.y + dir.y;
+      let intensity = pheromoneGrid.getIntensity(ix, iy);
+      if (intensity > best.val) {
+        best = { vec: dir.copy(), val: intensity };
+      }
+    }
+    return best.val > 0.1 ? best.vec.setMag(this.speed) : null;
   }
-  
+
+  followTrail() {
+    let trailDir = this.sensePheromone();
+    if (trailDir) {
+      this.vel.lerp(trailDir, this.colony.genome.trailFollowingBias);
+      this.vel.limit(this.speed);
+      return true;
+    }
+    return false;
+  }
+
+  explore() {
+    // smooth wander via small rotations
+    let turn = random(
+      -this.colony.genome.turnSensitivity,
+      this.colony.genome.turnSensitivity
+    );
+    this.vel.rotate(turn);
+    this.vel.setMag(this.speed);
+  }
+
+  screenWrap() {
+    if (this.pos.x < 0)       this.pos.x = width;
+    if (this.pos.x > width)   this.pos.x = 0;
+    if (this.pos.y < 0)       this.pos.y = height;
+    if (this.pos.y > height)  this.pos.y = 0;
+  }
+
+  // Stub out conflicts entirely
+  checkForConflicts() {
+    // no-op
+  }
+
   display() {
     push();
-    translate(this.pos.x, this.pos.y);
-    
-    // Use the colony's antDesign trait to determine the drawing style.
-    switch (this.colony.genome.antDesign) {
-      case 1:
-        // Design 1: Two long antennas and an elliptical body.
-        fill(this.colony.color);
-        noStroke();
-        ellipse(0, 0, 8, 5);
-        stroke(0);
-        line(-2, -3, -8, -8); // Left antenna
-        line(2, -3, 8, -8);   // Right antenna
-        break;
-        
-      case 2:
-        // Design 2: A triangle body with short antennas.
-        fill(this.colony.color);
-        noStroke();
-        triangle(-4, 4, 4, 4, 0, -6);
-        stroke(0);
-        line(0, -6, -3, -9); // Left short antenna
-        line(0, -6, 3, -9);  // Right short antenna
-        break;
-        
-      case 3:
-        // Design 3: A rectangular body with a decorative dot and minimal antennas.
-        fill(this.colony.color);
-        noStroke();
-        rectMode(CENTER);
-        rect(0, 0, 6, 4);
-        fill(0);
-        ellipse(0, 0, 2, 2);
-        stroke(0);
-        line(-1, -2, -2, -4); // Minimal left antenna
-        line(1, -2, 2, -4);   // Minimal right antenna
-        break;
-        
-      default:
-        // Fallback design: simple circle.
-        fill(this.colony.color);
-        noStroke();
-        ellipse(0, 0, 5, 5);
-    }
-    
+      translate(this.pos.x, this.pos.y);
+      noStroke();
+      fill(this.colony.color);
+      switch (this.colony.genome.antDesign) {
+        case 1:
+          ellipse(0,0,8,5);
+          stroke(0);
+          line(-2,-3,-8,-8);
+          line(2,-3,8,-8);
+          break;
+        case 2:
+          triangle(-4,4,4,4,0,-6);
+          stroke(0);
+          line(0,-6,-3,-9);
+          line(0,-6,3,-9);
+          break;
+        case 3:
+          rectMode(CENTER);
+          rect(0,0,6,4);
+          fill(0);
+          ellipse(0,0,2,2);
+          stroke(0);
+          line(-1,-2,-2,-4);
+          line(1,-2,2,-4);
+          break;
+        default:
+          ellipse(0,0,5,5);
+      }
     pop();
-    
-    // Draw energy bar (optional, as before)
-    let barWidth = 10;
-    let barHeight = 2;
-    let energyPercent = this.energy / this.maxEnergy;
+
+    // energy bar
+    let w = 10, h = 2;
     fill(200);
-    rect(this.pos.x - barWidth / 2, this.pos.y - 10, barWidth, barHeight);
-    fill(0, 255, 0);
-    rect(this.pos.x - barWidth / 2, this.pos.y - 10, barWidth * energyPercent, barHeight);
+    rect(this.pos.x - w/2, this.pos.y - 10, w, h);
+    let pct = constrain(this.energy / this.maxEnergy, 0, 1);
+    fill(0,255,0);
+    rect(this.pos.x - w/2, this.pos.y - 10, w * pct, h);
   }
 }

@@ -14,7 +14,7 @@ class PheromoneGrid {
   }
   
   update() {
-    // Use a decay factor of 0.98 so each cell retains 98% of its intensity per frame
+    
     for (let i = 0; i < this.cols; i++) {
       for (let j = 0; j < this.rows; j++) {
         this.grid[i][j] *= 0.98;

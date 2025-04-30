@@ -1,35 +1,63 @@
-// Global Variables
+
 let colonies = [];         // Array holding multiple Colony objects
 let pheromoneGrid;         // One pheromone grid for the entire canvas
 let foods = [];            // Array to hold food objects
-let colonyCount = 10;       // You can set this to any number between 2 and 5
+let colonyCount = 10;       
 let maxFood = 100;          // Maximum food items at any time
+
+
+let foodZones = [
+  { x: 100, y:  80, w: 150, h: 100, count: 50 },
+  { x: 400, y: 100, w: 130, h: 120, count: 60 },
+  { x: 700, y:  50, w: 120, h: 100, count: 55 },
+  { x: 200, y: 400, w: 160, h:  90, count: 50 },
+  { x: 600, y: 350, w: 140, h: 110, count: 60 }
+];
+
 
 function setup() {
   createCanvas(1200, 700);
   pheromoneGrid = new PheromoneGrid(width, height, 10);
 
-  // Generate non-overlapping nest positions
-  let nestPositions = generateNonOverlappingPositions(colonyCount, 80); // 80 px min distance
+  
+  let nestPositions = generateNonOverlappingPositions(colonyCount, 80); 
 
-  // Create multiple colonies at these positions
+  
   colonies = [];
   for (let i = 0; i < nestPositions.length; i++) {
     let pos = nestPositions[i];
     colonies.push(new Colony(pos.x, pos.y));
   }
 
-  // Create fewer food items
-  foods = [];
-  for (let i = 0; i < maxFood; i++) {
-    foods.push(new Food(random(50, width - 50), random(50, height - 50)));
+  
+  const gridCols = 12;
+const gridRows = 8;
+const margin   = 50;
+
+// Compute cell size so they fill the area neatly:
+const cellW = (width  - 2 * margin) / gridCols;
+const cellH = (height - 2 * margin) / gridRows;
+
+foods = [];
+for (let zone of foodZones) {
+  for (let i = 0; i < zone.count; i++) {
+    let fx = random(zone.x,           zone.x + zone.w);
+    let fy = random(zone.y,           zone.y + zone.h);
+    foods.push(new Food(fx, fy));
   }
+}
 }
 
 function draw() {
   background(220);
+
+  noFill();
+stroke(0, 150, 0);
+strokeWeight(2);
+for (let z of foodZones) {
+  rect(z.x, z.y, z.w, z.h);
+}
   
-  // Update and display pheromone grid, food, etc.
   pheromoneGrid.update(); 
   pheromoneGrid.display();
   
@@ -37,20 +65,20 @@ function draw() {
     food.display();
   }
   
-  // Update and display each colony
+  
   for (let colony of colonies) {
     colony.update();
     colony.display();
   }
   
-  // Remove colonies that are considered dead (no ants left)
+  
   removeDeadColonies();
 
-  // Draw the scoreboard, which now will only include living colonies
+  
   drawScoreboard();
   drawExtendedGraphs();
   
-  // Other functions: checkForNewColonies(), etc.
+  
   checkForNewColonies();
   if (frameCount % 600 === 0) {
     for (let i = 0; i < colonies.length; i++) {
@@ -62,38 +90,37 @@ function draw() {
 
 
 
-// Function to draw scoreboard
+
 function drawScoreboard() {
   push();
-  // Use Courier New for alignment if desired
+  
   textFont('Courier New');
   textSize(12);
   textAlign(LEFT, CENTER);
   
   let rowHeight = 20;
-  // Set the top-left corner of the scoreboard
+  
   let tableX = 10;
   let tableY = 10;
   
-  // Define fixed x-coordinates for each column (adjust as needed)
-  // The columns: Colony, Score, Ants, Spawn, Trail Bias, Explore Bias, Resources
+ 
   const colX = [0, 50, 100, 150, 220, 300, 380];
   
-  // The number of rows: header + one row per colony
+  
   let numRows = colonies.length + 1;
-  // Set scoreboard width and height based on the columns and rows
+  
   let scoreboardWidth = colX[colX.length - 1] + 70;
   let scoreboardHeight = rowHeight * numRows + 10;
   
-  // Draw the background for the scoreboard
+  
   fill(255, 200);
   stroke(0);
   rect(tableX, tableY, scoreboardWidth, scoreboardHeight);
   
-  // Draw header row text
+  
   fill(0);
   noStroke();
-  // The header row is vertically centered in the first row
+  
   let headerY = tableY + rowHeight / 2;
   text("Colony",      tableX + colX[0], headerY);
   text("Score",       tableX + colX[1], headerY);
@@ -103,12 +130,12 @@ function drawScoreboard() {
   text("Explore Bias",tableX + colX[5], headerY);
   text("Resources",   tableX + colX[6], headerY);
   
-  // Draw data rows for each colony
+  
   for (let i = 0; i < colonies.length; i++) {
     let c = colonies[i];
     let rowY = tableY + rowHeight * (i + 1) + rowHeight / 2;
     
-    // Use the colony's own dark color for its row text
+    
     fill(c.color);
     text(i + 1,                             tableX + colX[0], rowY);
     text(c.score,                           tableX + colX[1], rowY);
@@ -123,82 +150,79 @@ function drawScoreboard() {
 }
 
 function generateNonOverlappingPositions(count, minDist) {
+  const buffer = 50;    // how far nests must stay clear of any cube
   const positions = [];
-  let attempts = 0;
-  const maxAttempts = 10000;
+  let attempts = 0, maxAttempts = 10000;
 
   while (positions.length < count && attempts < maxAttempts) {
+    attempts++;
     let x = random(100, width - 100);
     let y = random(100, height - 100);
-    let good = true;
-    for (let p of positions) {
-      if (dist(p.x, p.y, x, y) < minDist) {
-        good = false;
-        break;
-      }
-    }
-    if (good) {
-      positions.push({ x, y });
-    }
-    attempts++;
-  }
 
-  if (positions.length < count) {
-    console.warn("Could not place all colonies with non-overlapping constraints.");
+    // 1) skip if within any zone + buffer
+    if (foodZones.some(z =>
+        x >= z.x - buffer &&
+        x <= z.x + z.w + buffer &&
+        y >= z.y - buffer &&
+        y <= z.y + z.h + buffer
+    )) continue;
+
+    // 2) your existing “no two nests too close” test
+    let ok = positions.every(p =>
+      dist(p.x,p.y,x,y) >= minDist
+    );
+    if (ok) positions.push({ x, y });
   }
   return positions;
 }
 
-function checkForNewColonies() {
-  let maxColonies = 20;           // Maximum number of colonies allowed
-  let newColonyThreshold = 100;   // Score threshold to trigger a new colony spawn
-  
-  // Loop through each colony (using a copy of the array if needed)
-  for (let i = 0; i < colonies.length; i++) {
-    let c = colonies[i];
-    // If this colony's score exceeds the threshold and we haven't reached the max colony count:
-    if (c.score > newColonyThreshold && colonies.length < maxColonies) {
-      // Create an offset vector to position the new colony near the parent's nest
-      let offset = p5.Vector.random2D().mult(50); // 50 px away in a random direction
-      let newX = constrain(c.nest.x + offset.x, 50, width - 50);
-      let newY = constrain(c.nest.y + offset.y, 50, height - 50);
-      
-      // Create a new genome by cloning parent's genome with slight mutations
-      let newGenome = Object.assign({}, c.genome);
-      newGenome.antSpeed = constrain(newGenome.antSpeed + random(-0.1, 0.1), 0.5, 2.0);
-      newGenome.pheromoneStrength = max(0.5, newGenome.pheromoneStrength + random(-0.2, 0.2));
-      newGenome.spawnRate = constrain(newGenome.spawnRate + floor(random(-10, 10)), 30, 180);
-      // You can also adjust explorationBias, trailFollowingBias, etc.
-      
-      // Create the new colony at the new position
-      let newColony = new Colony(newX, newY);
-      // Inherit the mutated genome from the parent colony
-      newColony.genome = newGenome;
-      
-      // Optionally, set initial resources for the new colony (adjust as needed)
-      newColony.colonyResources = 5;
-      
-      // Add the new colony to the global colonies array
-      colonies.push(newColony);
-      
-      // Optionally, reduce the parent's score by the threshold amount to limit continuous spawning
-      c.score -= newColonyThreshold;
-      
-      console.log("New colony spawned at", newX, newY, "with genome:", newGenome);
-    }
-  }
-}
 
-function removeDeadColonies() {
-  // Loop backwards to safely remove elements from the array.
-  for (let i = colonies.length - 1; i >= 0; i--) {
-    // Define a colony as dead if it has zero ants.
-    // You could add more conditions if needed, e.g., colony.colonyResources <= 0.
-    if (colonies[i].ants.length === 0) {
-      colonies.splice(i, 1);
+  
+
+
+  function checkForNewColonies() {
+    let maxColonies = 20,
+        newColonyThreshold = 100;
+  
+    for (let i = 0; i < colonies.length; i++) {
+      let c = colonies[i];
+      if (c.score > newColonyThreshold && colonies.length < maxColonies) {
+  
+        // find a new nest spot OUTSIDE all foodZones
+        let newX, newY;
+        do {
+          let offset = p5.Vector.random2D().mult(50);
+          newX = constrain(c.nest.x + offset.x, 50, width - 50);
+          newY = constrain(c.nest.y + offset.y, 50, height - 50);
+        } while ( foodZones.some(z =>
+          newX >= z.x && newX <= z.x + z.w &&
+          newY >= z.y && newY <= z.y + z.h
+        ));
+  
+        // now we can safely create the new colony
+        let newColony = new Colony(newX, newY);
+        // …inherit & mutate genome, reset resources, etc…
+        newColony.genome = { ...c.genome,
+          antSpeed:          constrain(c.genome.antSpeed          + random(-0.1,0.1), 0.5, 2.0),
+          pheromoneStrength: max(0.5, c.genome.pheromoneStrength + random(-0.2,0.2)),
+          spawnRate:         constrain(c.genome.spawnRate         + floor(random(-10,10)), 30, 180)
+        };
+        newColony.colonyResources = 5;
+        colonies.push(newColony);
+        c.score -= newColonyThreshold;
+      }
     }
   }
-}
+  
+
+  function removeDeadColonies() {
+    // Now we only delete a colony if it has no ants AND is not in aggressive mode
+    for (let i = colonies.length - 1; i >= 0; i--) {
+      if (colonies[i].ants.length === 0 && !colonies[i].aggressive) {
+        colonies.splice(i, 1);
+      }
+    }
+  }
 
 
 function drawExtendedGraphs() {
