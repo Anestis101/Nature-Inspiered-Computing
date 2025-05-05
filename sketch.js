@@ -188,7 +188,7 @@ function drawScoreboard() {
 
     fill(c.color);
     text(c.id,                             tableX + colX[0], rowY);
-    text(c.score,                          tableX + colX[1], rowY);
+    text(nf(c.score, 1, 1), tableX + colX[1], rowY);
     text(c.ants.length,                    tableX + colX[2], rowY);
     text(c.genome.spawnRate,               tableX + colX[3], rowY);
     text(nf(c.genome.trailFollowingBias, 1, 2), tableX + colX[4], rowY);
