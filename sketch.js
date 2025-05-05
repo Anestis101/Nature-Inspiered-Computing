@@ -5,6 +5,8 @@ let pheromoneGrid;         // One pheromone grid for the entire canvas
 let foods = [];            // Array to hold food objects
 let colonyCount = 10;       
 let maxFood = 100;          // Maximum food items at any time
+let deadAnts = [];
+
 
 let foodZones = [
   { x: 100, y:  80, w: 150, h: 100, count: 50 },
@@ -15,7 +17,7 @@ let foodZones = [
 ];
 
 function setup() {
-  createCanvas(1200, 700);
+  createCanvas(2000, 1000);
   pheromoneGrid = new PheromoneGrid(width, height, 10);
 
   // Generate non-overlapping nest positions
@@ -49,6 +51,23 @@ function draw() {
   for (let z of foodZones) {
     rect(z.x, z.y, z.w, z.h);
   }
+  
+  // Display dead ant markers
+  for (let i = deadAnts.length - 1; i >= 0; i--) {
+    let d = deadAnts[i];
+    push();
+    stroke(100);
+    strokeWeight(2);
+    line(d.x - 5, d.y - 5, d.x + 5, d.y + 5);
+    line(d.x - 5, d.y + 5, d.x + 5, d.y - 5);
+    pop();
+
+    d.timer--;
+    if (d.timer <= 0) {
+      deadAnts.splice(i, 1);
+    }
+  }
+
 
   // Update and display pheromone grid
   pheromoneGrid.update();
@@ -71,6 +90,8 @@ function draw() {
   // Draw stats table and graphs
   drawScoreboard();
   drawExtendedGraphs();
+  drawEnergyMeters();
+
 
   // Handle colony reproduction
   checkForNewColonies();
@@ -84,6 +105,50 @@ function draw() {
   }
 }
 
+function drawEnergyMeters() {
+  push();
+  textFont('Courier New');
+  textSize(12);
+  textAlign(LEFT, CENTER);
+
+  let startX = width - 250;
+  let startY = 10;
+  let rowHeight = 20;
+
+  fill(255, 220);
+  stroke(0);
+  rect(startX - 10, startY - 10, 240, colonies.length * rowHeight + 30);
+
+  for (let i = 0; i < colonies.length; i++) {
+    let c = colonies[i];
+    let y = startY + i * rowHeight;
+
+    let energy = c.energyHistory[c.energyHistory.length - 1] || 0;
+    let resources = c.colonyResources;
+
+    fill(0);
+    noStroke();
+    text(`Colony ${c.id}`, startX, y);
+    
+    // Energy bar
+    fill(100);
+    rect(startX + 90, y - 6, 100, 10);
+    fill(0, 200, 0);
+    rect(startX + 90, y - 6, map(energy, 0, 100, 0, 100), 10);
+
+    // Colony resource bar
+    fill(100);
+    let resBarWidth = constrain(map(resources, 0, 100, 0, 100), 0, 100);
+    rect(startX + 90, y + 6, resBarWidth, 5);
+    fill(0);
+    text(nf(resources, 1, 1), startX + 195, y + 6);
+
+  }
+
+  pop();
+}
+
+
 function drawScoreboard() {
   push();
   textFont('Courier New');
@@ -92,10 +157,10 @@ function drawScoreboard() {
 
   let rowHeight = 20;
   let tableX = 10, tableY = 10;
-  const colX = [0, 60, 120, 180, 260, 350, 430];
+  const colX = [0, 60, 120, 180, 260, 350]; // Removed last column
 
   let numRows = colonies.length + 1;
-  let scoreboardWidth = colX[colX.length - 1] + 100;
+  let scoreboardWidth = colX[colX.length - 1] + 80; // Adjusted width
   let scoreboardHeight = rowHeight * numRows + 10;
 
   // Background
@@ -113,7 +178,6 @@ function drawScoreboard() {
   text("Spawn",        tableX + colX[3], headerY);
   text("Trail Bias",   tableX + colX[4], headerY);
   text("Explore Bias", tableX + colX[5], headerY);
-  text("Resources",    tableX + colX[6], headerY);
 
   // Rows
   for (let i = 0; i < colonies.length; i++) {
@@ -127,7 +191,6 @@ function drawScoreboard() {
     text(c.genome.spawnRate,               tableX + colX[3], rowY);
     text(nf(c.genome.trailFollowingBias, 1, 2), tableX + colX[4], rowY);
     text(nf(c.genome.explorationBias,   1, 2), tableX + colX[5], rowY);
-    text(nf(c.colonyResources,          1, 2), tableX + colX[6], rowY);
   }
 
   pop();

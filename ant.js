@@ -80,6 +80,12 @@ class Ant {
     this.pos.add(this.vel.copy().setMag(this.speed));
     this.screenWrap();
 
+    if (this.energy <= 0 && this.alive) {
+      this.alive = false;
+      deadAnts.push({ x: this.pos.x, y: this.pos.y, timer: 300 }); // 5 seconds at 60fps
+    }
+    
+
     // 5) NO MORE conflict deaths
     // this.checkForConflicts();  ← simply do nothing now
   }
