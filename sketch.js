@@ -15,7 +15,7 @@ let foodZones = [
 ];
 
 function setup() {
-  createCanvas(1200, 700);
+  createCanvas(2000, 1000);
   pheromoneGrid = new PheromoneGrid(width, height, 10);
 
   // Generate non-overlapping nest positions
