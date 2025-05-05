@@ -2,34 +2,35 @@
 
 class Ant {
   constructor(x, y, colony) {
-    this.alive       = true;
-    this.pos         = createVector(x, y);
-    this.vel         = p5.Vector.random2D();
-    this.colony      = colony;
+    this.alive         = true;
+    this.pos           = createVector(x, y);
+    this.vel           = p5.Vector.random2D();
+    this.colony        = colony;
 
     // Speeds
     this.normalSpeed   = colony.genome.antSpeed;
     this.carryingSpeed = this.normalSpeed * 0.5;
     this.speed         = this.normalSpeed;
 
-    // Energy
-    this.maxEnergy             = 100;
+    // Energy (doubled)
+    this.maxEnergy             = 200;
     this.energy                = this.maxEnergy;
     this.consumptionMultiplier = 1;
 
-    // State: only "searching" or "returning" now
-    this.state       = "searching";
-    this.foodCarried = 0;
+    // State
+    this.state         = "searching";
+    this.foodCarried   = 0;
+    this.carryCapacity = colony.genome.carryCapacity; // e.g. 2
 
-    // How far ahead to sample pheromone
+    // Pheromone sensing
     this.senseDistance = 20;
   }
 
   update() {
-    // 1) drain energy
-    this.energy -= 0.2 * this.consumptionMultiplier;
+    // 1) Drain energy (much lower now)
+    this.energy -= 0.05 * this.consumptionMultiplier;
 
-    // 2) if starving while carrying, drop & head home
+    // 2) If starving while carrying, drop food & head home
     if (this.energy < 20 && this.foodCarried > 0) {
       foods.push(new Food(this.pos.x, this.pos.y, this.foodCarried));
       this.foodCarried = 0;
@@ -38,45 +39,55 @@ class Ant {
       this.state = "returning";
     }
 
-    // 3) behavior by state
+    // 3) Behaviour
     if (this.state === "searching") {
-      // look for food
       let target = this.findFood();
       if (target) {
         this.moveTowards(target.pos);
         if (this.pos.dist(target.pos) < 5) {
-          this.foodCarried = target.pickup();
+          // pick up up to carryCapacity
+          let picked = 0;
+          while (picked < this.carryCapacity && target.amount > 0) {
+            picked += target.pickup();
+          }
+          this.foodCarried = picked;
           if (this.foodCarried > 0) {
             this.state = "returning";
             this.speed = this.carryingSpeed;
-            this.consumptionMultiplier = 2;
+            this.consumptionMultiplier = 1.5;
           }
         }
       } else {
-        // no food: follow pheromone or explore
-        if (!this.followTrail()) {
-          this.explore();
-        }
+        if (!this.followTrail()) this.explore();
       }
 
     } else if (this.state === "returning") {
-      // return to nest & deposit pheromone
       this.moveTowards(this.colony.nest);
       pheromoneGrid.deposit(
         this.pos.x, this.pos.y,
         this.colony.genome.pheromoneStrength
       );
+
       if (this.pos.dist(this.colony.nest) < 10) {
+        // Fractional‐food consumption
+        let missingFrac = (this.maxEnergy - this.energy) / this.maxEnergy;
+        let foodToEat   = min(this.foodCarried, missingFrac);
+        this.energy    += foodToEat * this.maxEnergy;
+        this.energy     = constrain(this.energy, 0, this.maxEnergy);
+        this.foodCarried -= foodToEat;
+
+        // Deposit remainder
         this.colony.addFood(this.foodCarried);
         this.foodCarried = 0;
-        this.energy = this.maxEnergy;
-        this.state = "searching";
-        this.speed = this.normalSpeed;
+
+        // Reset state
+        this.state               = "searching";
+        this.speed               = this.normalSpeed;
         this.consumptionMultiplier = 1;
       }
     }
 
-    // 4) move & wrap
+    // 4) Move & wrap
     this.pos.add(this.vel.copy().setMag(this.speed));
     this.screenWrap();
 
@@ -93,6 +104,7 @@ class Ant {
   moveTowards(target) {
     let desired = p5.Vector.sub(target, this.pos).setMag(this.speed);
     this.vel.lerp(desired, 0.1);
+    this.vel.setMag(this.speed);
   }
 
   findFood() {
@@ -110,7 +122,7 @@ class Ant {
   sensePheromone() {
     let best = { vec: null, val: 0 };
     let base = this.vel.heading();
-    for (let off of [0, -PI / 4, PI / 4]) {
+    for (let off of [0, -PI/4, PI/4]) {
       let dir = p5.Vector.fromAngle(base + off).setMag(this.senseDistance);
       let ix = this.pos.x + dir.x, iy = this.pos.y + dir.y;
       let intensity = pheromoneGrid.getIntensity(ix, iy);
@@ -132,7 +144,6 @@ class Ant {
   }
 
   explore() {
-    // smooth wander via small rotations
     let turn = random(
       -this.colony.genome.turnSensitivity,
       this.colony.genome.turnSensitivity
@@ -148,11 +159,6 @@ class Ant {
     if (this.pos.y > height)  this.pos.y = 0;
   }
 
-  // Stub out conflicts entirely
-  checkForConflicts() {
-    // no-op
-  }
-
   display() {
     push();
       translate(this.pos.x, this.pos.y);
@@ -160,32 +166,31 @@ class Ant {
       fill(this.colony.color);
       switch (this.colony.genome.antDesign) {
         case 1:
-          ellipse(0,0,8,5);
+          ellipse(0, 0, 8, 5);
           stroke(0);
           line(-2,-3,-8,-8);
-          line(2,-3,8,-8);
+          line( 2,-3, 8,-8);
           break;
         case 2:
           triangle(-4,4,4,4,0,-6);
           stroke(0);
           line(0,-6,-3,-9);
-          line(0,-6,3,-9);
+          line(0,-6, 3,-9);
           break;
         case 3:
           rectMode(CENTER);
           rect(0,0,6,4);
-          fill(0);
-          ellipse(0,0,2,2);
+          fill(0); ellipse(0,0,2,2);
           stroke(0);
           line(-1,-2,-2,-4);
-          line(1,-2,2,-4);
+          line( 1,-2, 2,-4);
           break;
         default:
           ellipse(0,0,5,5);
       }
     pop();
 
-    // energy bar
+    // Energy bar
     let w = 10, h = 2;
     fill(200);
     rect(this.pos.x - w/2, this.pos.y - 10, w, h);

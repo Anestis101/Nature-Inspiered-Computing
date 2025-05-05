@@ -9,10 +9,10 @@ let deadAnts = [];
 
 
 let foodZones = [
-  { x: 100, y:  80, w: 150, h: 100, count: 50 },
-  { x: 400, y: 100, w: 130, h: 120, count: 60 },
-  { x: 700, y:  50, w: 120, h: 100, count: 55 },
-  { x: 200, y: 400, w: 160, h:  90, count: 50 },
+  { x: 1000, y:  80, w: 150, h: 100, count: 50 },
+  { x: 1400, y: 100, w: 130, h: 120, count: 60 },
+  { x: 600, y:  50, w: 120, h: 100, count: 55 },
+  { x: 500, y: 600, w: 160, h:  90, count: 50 },
   { x: 600, y: 350, w: 140, h: 110, count: 60 }
 ];
 
@@ -83,6 +83,8 @@ function draw() {
     colony.update();
     colony.display();
   }
+
+  
 
   // Remove any extinct colonies
   removeDeadColonies();
@@ -222,36 +224,55 @@ function generateNonOverlappingPositions(count, minDist) {
   return positions;
 }
 
+// sketch.js
+
 function checkForNewColonies() {
-  let maxColonies = 20,
-      newColonyThreshold = 100;
+  const maxColonies        = 20;
+  const spawnThreshold     = 100;   // score needed to bud
+  const minNestDist        = 100;   // min distance between any two nests
+  const maxSpawnRadius     = 200;   // how far from parent it can bud
+  const avoidFoodDist      = 50;    // min distance from any food
+  const maxAttempts        = 100;
 
   for (let i = colonies.length - 1; i >= 0; i--) {
     let parent = colonies[i];
-    if (parent.score > newColonyThreshold && colonies.length < maxColonies) {
-      // Find a valid new nest spot
-      let newX, newY;
-      do {
-        let offset = p5.Vector.random2D().mult(50);
-        newX = constrain(parent.nest.x + offset.x, 50, width - 50);
-        newY = constrain(parent.nest.y + offset.y, 50, height - 50);
-      } while (foodZones.some(z =>
-        newX >= z.x && newX <= z.x + z.w &&
-        newY >= z.y && newY <= z.y + z.h
-      ));
+    if (parent.score > spawnThreshold && colonies.length < maxColonies) {
+      let newX, newY, attempts = 0;
 
-      // Create new colony with parent reference (to get "5.1" style ID)
-      let newColony = new Colony(newX, newY, parent);
-      // Inherit & mutate genome
-      newColony.genome = {
-        ...parent.genome,
-        antSpeed:          constrain(parent.genome.antSpeed          + random(-0.1,0.1), 0.5, 2.0),
-        pheromoneStrength: max(0.5, parent.genome.pheromoneStrength + random(-0.2,0.2)),
-        spawnRate:         constrain(parent.genome.spawnRate         + floor(random(-10,10)), 30, 180)
-      };
-      newColony.colonyResources = 5;
-      colonies.push(newColony);
-      parent.score -= newColonyThreshold;
+      // Try up to maxAttempts to find a valid spot
+      do {
+        let theta = random(0, TWO_PI);
+        let r     = random(minNestDist, maxSpawnRadius);
+        newX = constrain(parent.nest.x + cos(theta) * r, 50, width - 50);
+        newY = constrain(parent.nest.y + sin(theta) * r, 50, height - 50);
+        attempts++;
+      }
+      while (
+        attempts < maxAttempts &&
+        (
+          // too close to any existing nest?
+          colonies.some(c => dist(c.nest.x, c.nest.y, newX, newY) < minNestDist)
+          ||
+          // too close to any food?
+          foods.some(f => dist(f.pos.x, f.pos.y, newX, newY) < avoidFoodDist)
+        )
+      );
+
+      // Only actually spawn if we found a good spot
+      if (attempts < maxAttempts) {
+        let child = new Colony(newX, newY, parent);
+        // inherit & mutate genome as before…
+        child.genome = {
+          ...parent.genome,
+          antSpeed:          constrain(parent.genome.antSpeed          + random(-0.1, 0.1), 0.5, 2.0),
+          pheromoneStrength: max(0.5, parent.genome.pheromoneStrength + random(-0.2, 0.2)),
+          spawnRate:         constrain(parent.genome.spawnRate         + floor(random(-10, 10)), 30, 180)
+        };
+        child.colonyResources = 5;
+        colonies.push(child);
+        parent.score -= spawnThreshold;
+      }
+      // otherwise give up this frame and wait until next time
     }
   }
 }
@@ -267,21 +288,27 @@ function removeDeadColonies() {
 function drawExtendedGraphs() {
   push();
 
-  let margin = 10;
-  let graphWidth = 380;
+  let margin      = 10;
+  let graphWidth  = 380;
   let graphHeight = 120;
-  let graphX = margin;
-  let graphY = height - graphHeight - margin;
+  let graphX      = margin;
+  let graphY      = height - graphHeight - margin;
 
   // Background
   fill(255, 200);
   stroke(0);
   rect(graphX, graphY, graphWidth, graphHeight);
 
+  // Clip to our graph area
+  drawingContext.save();
+  drawingContext.beginPath();
+  drawingContext.rect(graphX, graphY, graphWidth, graphHeight);
+  drawingContext.clip();
+
   // Draw lines
   for (let i = 0; i < colonies.length; i++) {
-    let col = colonies[i];
-    let popHistory = col.populationHistory;
+    let col           = colonies[i];
+    let popHistory    = col.populationHistory;
     let energyHistory = col.energyHistory;
 
     // Population (solid)
@@ -305,6 +332,9 @@ function drawExtendedGraphs() {
     }
     endShape();
   }
+
+  // Restore so future drawing isn’t clipped
+  drawingContext.restore();
 
   pop();
 }

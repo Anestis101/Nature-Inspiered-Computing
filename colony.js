@@ -33,7 +33,7 @@ class Colony {
 
     // Resources
     this.colonyResources = 50;
-    this.consumptionRate  = 0.0005;
+    this.consumptionRate  = 0.00025;
     this.antCost          = 5;
 
     // Start with 5 ants
