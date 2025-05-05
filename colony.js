@@ -1,9 +1,18 @@
 // colony.js
 
 class Colony {
-  constructor(nestX, nestY) {
+  constructor(nestX, nestY, parentColony = null) {
     this.nest = createVector(nestX, nestY);
     this.ants = [];
+
+    // Assign unique colony ID
+    if (parentColony) {
+      parentColony.subColonyCount += 1;
+      this.id = `${parentColony.id}.${parentColony.subColonyCount}`;
+    } else {
+      this.id = `${colonies.length + 1}`;
+    }
+    this.subColonyCount = 0;
 
     // Genome & appearance
     this.genome = {
@@ -19,11 +28,10 @@ class Colony {
     };
 
     this.color = color(random(0,100), random(0,100), random(0,100));
-
     this.score = 0;
     this.scoreHistory = [];
 
-    // Resource management
+    // Resources
     this.colonyResources = 50;
     this.consumptionRate  = 0.0005;
     this.antCost          = 5;
@@ -39,17 +47,14 @@ class Colony {
   }
 
   update() {
-    // Update all ants
     for (let ant of this.ants) ant.update();
     this.ants = this.ants.filter(a => a.alive);
 
-    // Resource consumption & starvation‐driven death (unchanged)
     this.colonyResources -= this.ants.length * this.consumptionRate;
     if (this.colonyResources < 0 && this.ants.length > 0) {
       this.ants.splice(floor(random(this.ants.length)), 1);
     }
 
-    // Spawn new ants as before
     if (this.ants.length < 50) {
       this.spawnTimer--;
       if (this.spawnTimer <= 0 && this.colonyResources >= this.antCost) {
@@ -76,10 +81,22 @@ class Colony {
   }
 
   display() {
+    // Draw nest
     fill(this.color);
     stroke(0);
     ellipse(this.nest.x, this.nest.y, 20, 20);
-    for (let ant of this.ants) ant.display();
+    // Draw colony ID right on top, white with black outline
+    textSize(12);
+    textAlign(CENTER, CENTER);
+    stroke(0);
+    strokeWeight(1);
+    fill(255);
+    text(this.id, this.nest.x, this.nest.y);
+
+    // Draw ants
+    for (let ant of this.ants) {
+      ant.display();
+    }
   }
 
   spawnAnt() {
@@ -100,9 +117,11 @@ class Colony {
     let totalFood     = this.score;
     let avgFoodPerAnt = this.ants.length ? totalFood / this.ants.length : 0;
     let survivalRate  = this.ants.length / 5;
-    return { totalFoodCollected: totalFood,
-             avgFoodPerAnt,
-             survivalRate,
-             trailEfficiency: "Not implemented" };
+    return {
+      totalFoodCollected: totalFood,
+      avgFoodPerAnt,
+      survivalRate,
+      trailEfficiency: "Not implemented"
+    };
   }
 }
