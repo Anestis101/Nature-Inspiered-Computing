@@ -74,9 +74,15 @@ function draw() {
   pheromoneGrid.display();
 
   // Display all food
-  for (let food of foods) {
-    food.display();
-  }
+  // Filter out empty food and display active ones
+  foods = foods.filter(f => {
+    if (f.amount > 0) {
+      f.display();
+      return true;
+    }
+    return false; // remove from array
+  });
+
 
   // Update and display all colonies
   for (let colony of colonies) {
