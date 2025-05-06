@@ -142,7 +142,9 @@ function drawEnergyMeters() {
     fill(100);
     rect(startX + 90, y - 6, 100, 10);
     fill(0, 200, 0);
-    rect(startX + 90, y - 6, map(energy, 0, 100, 0, 100), 10);
+    let energyBarWidth = constrain(map(energy, 0, 150, 0, 100), 0, 100);  
+    rect(startX + 90, y - 6, energyBarWidth, 10);
+
 
     // Colony resource bar
     fill(100);
