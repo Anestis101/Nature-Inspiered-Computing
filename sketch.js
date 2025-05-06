@@ -99,6 +99,8 @@ function draw() {
   drawScoreboard();
   drawExtendedGraphs();
   drawEnergyMeters();
+  drawAgeTable();
+
 
 
   // Handle colony reproduction
@@ -344,5 +346,55 @@ function drawExtendedGraphs() {
   // Restore so future drawing isn’t clipped
   drawingContext.restore();
 
+  pop();
+}
+
+function drawAgeTable() {
+  const padding     = 10;
+  const colWidths   = [80, 60];               // ID col, Avg-Age col
+  const tableWidth  = colWidths[0] + colWidths[1] + padding * 2;
+  const numRows     = colonies.length + 1;    // +1 for header
+  const availableH  = height - padding * 2;   // total vertical space
+  let   rowH        = 20;                     // desired row height
+
+  // if table would overflow, shrink rowH to fit
+  let tableH = numRows * rowH + padding;
+  if (tableH > availableH) {
+    rowH   = (availableH - padding) / numRows;
+    tableH = availableH;
+  }
+
+  // anchor to bottom-right
+  const tableX = width  - tableWidth  - padding;
+  const tableY = height - tableH      - padding;
+
+  push();
+    // background
+    fill(255, 200);
+    stroke(0);
+    rect(tableX, tableY, tableWidth, tableH);
+
+    // header
+    noStroke();
+    fill(0);
+    textFont('Courier New');
+    textSize(rowH * 0.6);
+    textAlign(LEFT, CENTER);
+    let y = tableY + rowH / 2 + padding / 2;
+    text("Colony ID", tableX + padding,       y);
+    text("Avg Age",   tableX + padding + colWidths[0], y);
+
+    // rows
+    for (let i = 0; i < colonies.length; i++) {
+      const c = colonies[i];
+      const avg = c.ants.length
+        ? (c.ants.reduce((sum, a) => sum + a.age, 0) / c.ants.length).toFixed(1)
+        : "0.0";
+      const rowY = tableY + rowH * (i + 1) + rowH / 2 + padding / 2;
+
+      fill(c.color);
+      text(c.id,  tableX + padding,             rowY);
+      text(avg,   tableX + padding + colWidths[0], rowY);
+    }
   pop();
 }

@@ -17,6 +17,11 @@ class Ant {
     this.energy = this.maxEnergy;
     this.consumptionMultiplier = 0.5;
 
+    // Aging
+    this.age = 0;    // start at zero
+    this.maxAge = 20;   // die when age ≥ 10
+    this._ageTicker = 0;    // internal frame-based timer
+
     // State: "searching", "returning", or "goingToResource"
     this.state = "searching";
     this.lastResourcePos = null;  // Remember big patch position
@@ -68,7 +73,7 @@ class Ant {
             picked += target.pickup();
           }
           this.foodCarried = picked;
-        
+
           if (this.foodCarried > 0) {
             // if it's a big patch, remember it…
             let remaining = foods
@@ -77,13 +82,13 @@ class Ant {
             if (remaining > 20) {
               this.lastResourcePos = target.pos.copy();
             }
-        
+
             this.state = "returning";
             this.speed = this.carryingSpeed;
             this.consumptionMultiplier = 2;
           }
         }
-        
+
       } else {
         // no food: follow pheromone or explore
         if (!this.followTrail()) {
@@ -108,8 +113,20 @@ class Ant {
         this.speed = this.normalSpeed;
         this.consumptionMultiplier = 1;
       }
-      
-      
+
+      this._ageTicker++;
+      if (this._ageTicker >= 120) {  // now age++ every ~2 seconds
+        this.age++;
+        this._ageTicker = 0;
+        if (this.age >= this.maxAge) {
+          this.alive = false;
+          deadAnts.push({ x: this.pos.x, y: this.pos.y, timer: 300 });
+          return;
+        }
+      }
+
+
+
     }
 
     // 4) move & wrap
@@ -120,7 +137,7 @@ class Ant {
       this.alive = false;
       deadAnts.push({ x: this.pos.x, y: this.pos.y, timer: 300 }); // 5 seconds at 60fps
     }
-    
+
 
     // 5) NO MORE conflict deaths
     // this.checkForConflicts();  ← simply do nothing now
