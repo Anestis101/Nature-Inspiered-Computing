@@ -55,7 +55,7 @@ class Colony {
       this.ants.splice(floor(random(this.ants.length)), 1);
     }
 
-    if (this.ants.length < 50) {
+    if (this.ants.length < 50 && this.colonyResources >= 60) {
       this.spawnTimer--;
       if (this.spawnTimer <= 0 && this.colonyResources >= this.antCost) {
         this.colonyResources -= this.antCost;
