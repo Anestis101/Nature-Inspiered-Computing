@@ -3,7 +3,7 @@
 let colonies = [];         // Array holding multiple Colony objects
 let pheromoneGrid;         // One pheromone grid for the entire canvas
 let foods = [];            // Array to hold food objects
-let colonyCount = 10;       
+let colonyCount = 10;
 let maxFood = 100;          // Maximum food items at any time
 let deadAnts = [];
 
@@ -51,7 +51,7 @@ function draw() {
   for (let z of foodZones) {
     rect(z.x, z.y, z.w, z.h);
   }
-  
+
   // Display dead ant markers
   for (let i = deadAnts.length - 1; i >= 0; i--) {
     let d = deadAnts[i];
@@ -90,7 +90,7 @@ function draw() {
     colony.display();
   }
 
-  
+
 
   // Remove any extinct colonies
   removeDeadColonies();
@@ -139,12 +139,12 @@ function drawEnergyMeters() {
     fill(0);
     noStroke();
     text(`Colony ${c.id}`, startX, y);
-    
+
     // Energy bar
     fill(100);
     rect(startX + 90, y - 6, 100, 10);
     fill(0, 200, 0);
-    let energyBarWidth = constrain(map(energy, 0, 150, 0, 100), 0, 100);  
+    let energyBarWidth = constrain(map(energy, 0, 150, 0, 100), 0, 100);
     rect(startX + 90, y - 6, energyBarWidth, 10);
 
 
@@ -169,10 +169,10 @@ function drawScoreboard() {
 
   let rowHeight = 20;
   let tableX = 10, tableY = 10;
-  const colX = [0, 60, 120, 180, 260, 350]; // Removed last column
+  const colX = [10, 70, 130, 190, 270, 360]; 
 
   let numRows = colonies.length + 1;
-  let scoreboardWidth = colX[colX.length - 1] + 80; // Adjusted width
+  let scoreboardWidth = colX[colX.length - 1] + 100; // Adjusted width
   let scoreboardHeight = rowHeight * numRows + 10;
 
   // Background
@@ -184,11 +184,11 @@ function drawScoreboard() {
   fill(0);
   noStroke();
   let headerY = tableY + rowHeight / 2;
-  text("Colony ",    tableX + colX[0], headerY);
-  // text("Score",        tableX + colX[1], headerY);
-  text("Ants",         tableX + colX[2], headerY);
-  text("Spawn",        tableX + colX[3], headerY);
-  text("Trail Bias",   tableX + colX[4], headerY);
+  text("Colony ", tableX + colX[0], headerY);
+  text("Score", tableX + colX[1], headerY);
+  text("Ants", tableX + colX[2], headerY);
+  text("Spawn", tableX + colX[3], headerY);
+  text("Trail Bias", tableX + colX[4], headerY);
   text("Explore Bias", tableX + colX[5], headerY);
 
   // Rows
@@ -197,12 +197,12 @@ function drawScoreboard() {
     let rowY = tableY + rowHeight * (i + 1) + rowHeight / 2;
 
     fill(c.color);
-    text(c.id,                             tableX + colX[0], rowY);
-    // text(str(c.score),                          tableX + colX[1], rowY);
-    text(c.ants.length,                    tableX + colX[2], rowY);
-    text(c.genome.spawnRate,               tableX + colX[3], rowY);
+    text(c.id, tableX + colX[0], rowY);
+    text(str(c.score), tableX + colX[1], rowY);
+    text(c.ants.length, tableX + colX[2], rowY);
+    text(c.genome.spawnRate, tableX + colX[3], rowY);
     text(nf(c.genome.trailFollowingBias, 1, 2), tableX + colX[4], rowY);
-    text(nf(c.genome.explorationBias,   1, 2), tableX + colX[5], rowY);
+    text(nf(c.genome.explorationBias, 1, 2), tableX + colX[5], rowY);
   }
 
   pop();
@@ -220,8 +220,8 @@ function generateNonOverlappingPositions(count, minDist) {
 
     // Avoid food zones
     if (foodZones.some(z =>
-        x >= z.x - buffer && x <= z.x + z.w + buffer &&
-        y >= z.y - buffer && y <= z.y + z.h + buffer
+      x >= z.x - buffer && x <= z.x + z.w + buffer &&
+      y >= z.y - buffer && y <= z.y + z.h + buffer
     )) continue;
 
     // Avoid other nests
@@ -237,22 +237,21 @@ function generateNonOverlappingPositions(count, minDist) {
 // sketch.js
 
 function checkForNewColonies() {
-  const maxColonies        = 20;
-  const spawnThreshold     = 100;   // score needed to bud
-  const minNestDist        = 100;   // min distance between any two nests
-  const maxSpawnRadius     = 200;   // how far from parent it can bud
-  const avoidFoodDist      = 50;    // min distance from any food
-  const maxAttempts        = 100;
+  const maxColonies = 20;
+  const spawnThreshold = 100;   // score needed to bud
+  const minNestDist = 100;   // min distance between any two nests
+  const maxSpawnRadius = 200;   // how far from parent it can bud
+  const avoidFoodDist = 50;    // min distance from any food
+  const maxAttempts = 100;
 
   for (let i = colonies.length - 1; i >= 0; i--) {
     let parent = colonies[i];
-    if (parent.score > spawnThreshold && colonies.length < maxColonies) {
+    if (parent.colonyResources >= 100 && colonies.length < maxColonies) {
       let newX, newY, attempts = 0;
 
-      // Try up to maxAttempts to find a valid spot
       do {
         let theta = random(0, TWO_PI);
-        let r     = random(minNestDist, maxSpawnRadius);
+        let r = random(minNestDist, maxSpawnRadius);
         newX = constrain(parent.nest.x + cos(theta) * r, 50, width - 50);
         newY = constrain(parent.nest.y + sin(theta) * r, 50, height - 50);
         attempts++;
@@ -260,30 +259,27 @@ function checkForNewColonies() {
       while (
         attempts < maxAttempts &&
         (
-          // too close to any existing nest?
-          colonies.some(c => dist(c.nest.x, c.nest.y, newX, newY) < minNestDist)
-          ||
-          // too close to any food?
+          colonies.some(c => dist(c.nest.x, c.nest.y, newX, newY) < minNestDist) ||
           foods.some(f => dist(f.pos.x, f.pos.y, newX, newY) < avoidFoodDist)
         )
       );
 
-      // Only actually spawn if we found a good spot
       if (attempts < maxAttempts) {
         let child = new Colony(newX, newY, parent);
-        // inherit & mutate genome as before…
         child.genome = {
           ...parent.genome,
-          antSpeed:          constrain(parent.genome.antSpeed          + random(-0.1, 0.1), 0.5, 2.0),
+          antSpeed: constrain(parent.genome.antSpeed + random(-0.1, 0.1), 0.5, 2.0),
           pheromoneStrength: max(0.5, parent.genome.pheromoneStrength + random(-0.2, 0.2)),
-          spawnRate:         constrain(parent.genome.spawnRate         + floor(random(-10, 10)), 30, 180)
+          spawnRate: constrain(parent.genome.spawnRate + floor(random(-10, 10)), 30, 180)
         };
         child.colonyResources = 5;
         colonies.push(child);
-        parent.score -= spawnThreshold;
+
+        // ✅ NEW: deduct 80 colonyResources as reproduction cost
+        parent.colonyResources -= 80;
       }
-      // otherwise give up this frame and wait until next time
     }
+
   }
 }
 
@@ -298,11 +294,11 @@ function removeDeadColonies() {
 function drawExtendedGraphs() {
   push();
 
-  let margin      = 10;
-  let graphWidth  = 380;
+  let margin = 10;
+  let graphWidth = 380;
   let graphHeight = 120;
-  let graphX      = margin;
-  let graphY      = height - graphHeight - margin;
+  let graphX = margin;
+  let graphY = height - graphHeight - margin;
 
   // Background
   fill(255, 200);
@@ -317,8 +313,8 @@ function drawExtendedGraphs() {
 
   // Draw lines
   for (let i = 0; i < colonies.length; i++) {
-    let col           = colonies[i];
-    let popHistory    = col.populationHistory;
+    let col = colonies[i];
+    let popHistory = col.populationHistory;
     let energyHistory = col.energyHistory;
 
     // Population (solid)
