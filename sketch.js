@@ -167,10 +167,10 @@ function drawScoreboard() {
 
   let rowHeight = 20;
   let tableX = 10, tableY = 10;
-  const colX = [0, 60, 120, 180, 260, 350]; // Removed last column
+  const colX = [10, 70, 130, 190, 270, 360]; 
 
   let numRows = colonies.length + 1;
-  let scoreboardWidth = colX[colX.length - 1] + 80; // Adjusted width
+  let scoreboardWidth = colX[colX.length - 1] + 100; // Adjusted width
   let scoreboardHeight = rowHeight * numRows + 10;
 
   // Background
@@ -183,7 +183,7 @@ function drawScoreboard() {
   noStroke();
   let headerY = tableY + rowHeight / 2;
   text("Colony ", tableX + colX[0], headerY);
-  // text("Score",        tableX + colX[1], headerY);
+  text("Score", tableX + colX[1], headerY);
   text("Ants", tableX + colX[2], headerY);
   text("Spawn", tableX + colX[3], headerY);
   text("Trail Bias", tableX + colX[4], headerY);
@@ -196,7 +196,7 @@ function drawScoreboard() {
 
     fill(c.color);
     text(c.id, tableX + colX[0], rowY);
-    // text(str(c.score),                          tableX + colX[1], rowY);
+    text(str(c.score), tableX + colX[1], rowY);
     text(c.ants.length, tableX + colX[2], rowY);
     text(c.genome.spawnRate, tableX + colX[3], rowY);
     text(nf(c.genome.trailFollowingBias, 1, 2), tableX + colX[4], rowY);
