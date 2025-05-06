@@ -2,23 +2,24 @@
 
 class Ant {
   constructor(x, y, colony) {
-    this.alive       = true;
-    this.pos         = createVector(x, y);
-    this.vel         = p5.Vector.random2D();
-    this.colony      = colony;
+    this.alive = true;
+    this.pos = createVector(x, y);
+    this.vel = p5.Vector.random2D();
+    this.colony = colony;
 
     // Speeds
-    this.normalSpeed   = colony.genome.antSpeed;
+    this.normalSpeed = colony.genome.antSpeed;
     this.carryingSpeed = this.normalSpeed * 0.5;
-    this.speed         = this.normalSpeed;
+    this.speed = this.normalSpeed;
 
     // Energy
-    this.maxEnergy             = 100;
-    this.energy                = this.maxEnergy;
+    this.maxEnergy = 100;
+    this.energy = this.maxEnergy;
     this.consumptionMultiplier = 1;
 
-    // State: only "searching" or "returning" now
-    this.state       = "searching";
+    // State: "searching", "returning", or "goingToResource"
+    this.state = "searching";
+    this.lastResourcePos = null;  // Remember big patch position
     this.foodCarried = 0;
 
     // How far ahead to sample pheromone
@@ -26,6 +27,19 @@ class Ant {
   }
 
   update() {
+    // 0) If heading back to a big patch, go there first
+    if (this.state === "goingToResource") {
+      this.moveTowards(this.lastResourcePos);
+      this.pos.add(this.vel.copy().setMag(this.speed));
+      this.screenWrap();
+      // Arrived: clear memory and resume normal search
+      if (this.pos.dist(this.lastResourcePos) < 5) {
+        this.lastResourcePos = null;
+        this.state = "searching";
+      }
+      return;
+    }
+
     // 1) drain energy
     this.energy -= 0.2 * this.consumptionMultiplier;
 
@@ -47,6 +61,13 @@ class Ant {
         if (this.pos.dist(target.pos) < 5) {
           this.foodCarried = target.pickup();
           if (this.foodCarried > 0) {
+            // If patch still has plenty left, remember it
+            let remaining = foods
+              .filter(f => f.zone === target.zone && f.amount > 0)
+              .length;
+            if (remaining > 20) {  // threshold for “huge”
+              this.lastResourcePos = target.pos.copy();
+            }
             this.state = "returning";
             this.speed = this.carryingSpeed;
             this.consumptionMultiplier = 2;
@@ -67,10 +88,16 @@ class Ant {
         this.colony.genome.pheromoneStrength
       );
       if (this.pos.dist(this.colony.nest) < 10) {
+        // deposit
         this.colony.addFood(this.foodCarried);
         this.foodCarried = 0;
         this.energy = this.maxEnergy;
-        this.state = "searching";
+        // if we remembered a big patch, go there next
+        if (this.lastResourcePos) {
+          this.state = "goingToResource";
+        } else {
+          this.state = "searching";
+        }
         this.speed = this.normalSpeed;
         this.consumptionMultiplier = 1;
       }
@@ -132,7 +159,6 @@ class Ant {
   }
 
   explore() {
-    // smooth wander via small rotations
     let turn = random(
       -this.colony.genome.turnSensitivity,
       this.colony.genome.turnSensitivity
@@ -142,55 +168,50 @@ class Ant {
   }
 
   screenWrap() {
-    if (this.pos.x < 0)       this.pos.x = width;
-    if (this.pos.x > width)   this.pos.x = 0;
-    if (this.pos.y < 0)       this.pos.y = height;
-    if (this.pos.y > height)  this.pos.y = 0;
-  }
-
-  // Stub out conflicts entirely
-  checkForConflicts() {
-    // no-op
+    if (this.pos.x < 0) this.pos.x = width;
+    if (this.pos.x > width) this.pos.x = 0;
+    if (this.pos.y < 0) this.pos.y = height;
+    if (this.pos.y > height) this.pos.y = 0;
   }
 
   display() {
     push();
-      translate(this.pos.x, this.pos.y);
-      noStroke();
-      fill(this.colony.color);
-      switch (this.colony.genome.antDesign) {
-        case 1:
-          ellipse(0,0,8,5);
-          stroke(0);
-          line(-2,-3,-8,-8);
-          line(2,-3,8,-8);
-          break;
-        case 2:
-          triangle(-4,4,4,4,0,-6);
-          stroke(0);
-          line(0,-6,-3,-9);
-          line(0,-6,3,-9);
-          break;
-        case 3:
-          rectMode(CENTER);
-          rect(0,0,6,4);
-          fill(0);
-          ellipse(0,0,2,2);
-          stroke(0);
-          line(-1,-2,-2,-4);
-          line(1,-2,2,-4);
-          break;
-        default:
-          ellipse(0,0,5,5);
-      }
+    translate(this.pos.x, this.pos.y);
+    noStroke();
+    fill(this.colony.color);
+    switch (this.colony.genome.antDesign) {
+      case 1:
+        ellipse(0, 0, 8, 5);
+        stroke(0);
+        line(-2, -3, -8, -8);
+        line(2, -3, 8, -8);
+        break;
+      case 2:
+        triangle(-4, 4, 4, 4, 0, -6);
+        stroke(0);
+        line(0, -6, -3, -9);
+        line(0, -6, 3, -9);
+        break;
+      case 3:
+        rectMode(CENTER);
+        rect(0, 0, 6, 4);
+        fill(0);
+        ellipse(0, 0, 2, 2);
+        stroke(0);
+        line(-1, -2, -2, -4);
+        line(1, -2, 2, -4);
+        break;
+      default:
+        ellipse(0, 0, 5, 5);
+    }
     pop();
 
     // energy bar
     let w = 10, h = 2;
     fill(200);
-    rect(this.pos.x - w/2, this.pos.y - 10, w, h);
+    rect(this.pos.x - w / 2, this.pos.y - 10, w, h);
     let pct = constrain(this.energy / this.maxEnergy, 0, 1);
-    fill(0,255,0);
-    rect(this.pos.x - w/2, this.pos.y - 10, w * pct, h);
+    fill(0, 255, 0);
+    rect(this.pos.x - w / 2, this.pos.y - 10, w * pct, h);
   }
 }
