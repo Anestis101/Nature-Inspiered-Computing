@@ -18,29 +18,24 @@ class Ant {
     this.consumptionMultiplier = 0.5;
 
     // Aging
-    this.age = 0;    // start at zero
-    this.maxAge = 20;   // die when age ≥ 10
-    this._ageTicker = 0;    // internal frame-based timer
+    this.age = 0;
+    this.maxAge = 20;
+    this._ageTicker = 0;
 
-    // State: "searching", "returning", or "goingToResource"
+    // State
     this.state = "searching";
-    this.lastResourcePos = null;  // Remember big patch position
+    this.lastResourcePos = null;
     this.foodCarried = 0;
-    // how many units of food this ant can carry
     this.carryCapacity = 2;
 
-
-    // How far ahead to sample pheromone
     this.senseDistance = 20;
   }
 
   update() {
-    // 0) If heading back to a big patch, go there first
     if (this.state === "goingToResource") {
       this.moveTowards(this.lastResourcePos);
       this.pos.add(this.vel.copy().setMag(this.speed));
       this.screenWrap();
-      // Arrived: clear memory and resume normal search
       if (this.pos.dist(this.lastResourcePos) < 5) {
         this.lastResourcePos = null;
         this.state = "searching";
@@ -48,26 +43,24 @@ class Ant {
       return;
     }
 
-    // 1) drain energy
     this.energy -= 0.05 * this.consumptionMultiplier;
 
-    // 2) if starving while carrying, drop & head home
+    // If starving while carrying food → drop it
     if (this.energy < 20 && this.foodCarried > 0) {
-      foods.push(new Food(this.pos.x, this.pos.y, this.foodCarried));
+      let dummyZone = { x: this.pos.x, y: this.pos.y, w: 1, h: 1 };
+      let dropped = new Food(this.pos.x, this.pos.y, dummyZone, this.foodCarried, true);  // ← exact = true
+      foods.push(dropped);
       this.foodCarried = 0;
       this.speed = this.normalSpeed;
       this.consumptionMultiplier = 1;
       this.state = "returning";
     }
-
-    // 3) behavior by state
+    
     if (this.state === "searching") {
-      // look for food
       let target = this.findFood();
       if (target) {
         this.moveTowards(target.pos);
         if (this.pos.dist(target.pos) < 5) {
-          // pick up up to carryCapacity
           let picked = 0;
           while (picked < this.carryCapacity && target.amount > 0) {
             picked += target.pickup();
@@ -75,7 +68,6 @@ class Ant {
           this.foodCarried = picked;
 
           if (this.foodCarried > 0) {
-            // if it's a big patch, remember it…
             let remaining = foods
               .filter(f => f.zone === target.zone && f.amount > 0)
               .length;
@@ -88,21 +80,19 @@ class Ant {
             this.consumptionMultiplier = 2;
           }
         }
-
       } else {
-        // no food: follow pheromone or explore
         if (!this.followTrail()) {
           this.explore();
         }
       }
 
     } else if (this.state === "returning") {
-      // return to nest & deposit pheromone
       this.moveTowards(this.colony.nest);
       pheromoneGrid.deposit(
         this.pos.x, this.pos.y,
         this.colony.genome.pheromoneStrength
       );
+
       if (this.pos.dist(this.colony.nest) < 10) {
         if (this.foodCarried > 0) {
           this.colony.addFood(this.foodCarried);
@@ -115,7 +105,7 @@ class Ant {
       }
 
       this._ageTicker++;
-      if (this._ageTicker >= 120) {  // now age++ every ~2 seconds
+      if (this._ageTicker >= 120) {
         this.age++;
         this._ageTicker = 0;
         if (this.age >= this.maxAge) {
@@ -124,23 +114,15 @@ class Ant {
           return;
         }
       }
-
-
-
     }
 
-    // 4) move & wrap
     this.pos.add(this.vel.copy().setMag(this.speed));
     this.screenWrap();
 
     if (this.energy <= 0 && this.alive) {
       this.alive = false;
-      deadAnts.push({ x: this.pos.x, y: this.pos.y, timer: 300 }); // 5 seconds at 60fps
+      deadAnts.push({ x: this.pos.x, y: this.pos.y, timer: 300 });
     }
-
-
-    // 5) NO MORE conflict deaths
-    // this.checkForConflicts();  ← simply do nothing now
   }
 
   moveTowards(target) {
@@ -232,7 +214,7 @@ class Ant {
     }
     pop();
 
-    // energy bar
+    // Energy bar
     let w = 10, h = 2;
     fill(200);
     rect(this.pos.x - w / 2, this.pos.y - 10, w, h);

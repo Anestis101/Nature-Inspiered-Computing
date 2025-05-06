@@ -59,7 +59,7 @@ class Colony {
       this.ants.splice(floor(random(this.ants.length)), 1);
     }
 
-    if (this.ants.length < 50 && this.colonyResources >= 50) {
+    if (this.ants.length < 50 && this.colonyResources >= 20) {
       this.spawnTimer--;
       // NEW: require at least spawnThreshold total resources
       if (this.spawnTimer <= 0

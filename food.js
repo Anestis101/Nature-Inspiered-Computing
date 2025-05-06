@@ -1,14 +1,18 @@
-// food.js
-
 class Food {
-  constructor(x, y, zone, initialAmount = 5) {
-    this.zone          = zone;
+  constructor(x, y, zone, initialAmount = 5, exact = false) {
+    this.zone = zone;
     this.initialAmount = initialAmount;
-    this.amount        = initialAmount;
-    this.pos = createVector(
-      constrain(x, zone.x, zone.x + zone.w),
-      constrain(y, zone.y, zone.y + zone.h)
-    );
+    this.amount = initialAmount;
+
+    // Exact = don't constrain to zone area
+    if (exact) {
+      this.pos = createVector(x, y);
+    } else {
+      this.pos = createVector(
+        constrain(x, zone.x, zone.x + zone.w),
+        constrain(y, zone.y, zone.y + zone.h)
+      );
+    }
   }
 
   pickup() {
