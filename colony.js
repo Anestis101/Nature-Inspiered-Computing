@@ -35,6 +35,7 @@ class Colony {
     this.colonyResources = 50;
     this.consumptionRate  = 0.00025;
     this.antCost          = 5;
+    this.spawnThreshold   = 50;   // must have at least 50 total to spawn
 
     // Start with 5 ants
     for (let i = 0; i < 5; i++) {
@@ -47,17 +48,24 @@ class Colony {
   }
 
   update() {
+    // Update each ant, remove dead
     for (let ant of this.ants) ant.update();
     this.ants = this.ants.filter(a => a.alive);
 
+    // Consume resources per ant
     this.colonyResources -= this.ants.length * this.consumptionRate;
     if (this.colonyResources < 0 && this.ants.length > 0) {
+      // starve one ant
       this.ants.splice(floor(random(this.ants.length)), 1);
     }
 
+    // Only spawn if under population cap
     if (this.ants.length < 50) {
       this.spawnTimer--;
-      if (this.spawnTimer <= 0 && this.colonyResources >= this.antCost) {
+      // NEW: require at least spawnThreshold total resources
+      if (this.spawnTimer <= 0
+          && this.colonyResources >= this.spawnThreshold) {
+        // pay the per‐ant cost
         this.colonyResources -= this.antCost;
         this.spawnTimer = this.genome.spawnRate;
         this.spawnAnt();
@@ -85,12 +93,10 @@ class Colony {
     fill(this.color);
     stroke(0);
     ellipse(this.nest.x, this.nest.y, 20, 20);
-    // Draw colony ID right on top, white with black outline
+    // Draw colony ID
     textSize(12);
     textAlign(CENTER, CENTER);
-    stroke(0);
-    strokeWeight(1);
-    fill(255);
+    stroke(0); strokeWeight(1); fill(255);
     text(this.id, this.nest.x, this.nest.y);
 
     // Draw ants

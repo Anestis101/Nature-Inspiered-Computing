@@ -1,101 +1,90 @@
 // sketch.js
 
-let colonies = [];         // Array holding multiple Colony objects
-let pheromoneGrid;         // One pheromone grid for the entire canvas
-let foods = [];            // Array to hold food objects
-let colonyCount = 10;
-let maxFood = 100;          // Maximum food items at any time
-let deadAnts = [];
+let colonies       = [];   // your Colony objects
+let pheromoneGrid  = null;
+let colonyCount    = 10;
+let deadAnts       = [];
 
+// —– food‐patch settings —–
+const FOOD_ZONE_COUNT = 5;
+const FOOD_AMOUNT     = 2;   // each Food object starts with 5 units
+const FOODS_PER_ZONE  = 100;
 
-let foodZones = [
-  { x: 1500, y:  80, w: 150, h: 100, count: 50 },
-  { x: 1000, y: 400, w: 130, h: 120, count: 60 },
-  { x: 500, y:  50, w: 120, h: 100, count: 55 },
-  { x: 400, y: 600, w: 160, h:  90, count: 50 },
-  { x: 1450, y: 550, w: 140, h: 110, count: 60 }
-];
+let foodZones      = [];   // current patches
+let lastFoodZones  = [];   // previous patch for each slot
+
+// foods is flat so ant.js still sees it as before
+let foods          = [];   
+
+// zoneFoods[i] holds exactly the 5 Food objects for patch i
+let zoneFoods      = [];
 
 function setup() {
   createCanvas(2000, 1000);
   pheromoneGrid = new PheromoneGrid(width, height, 10);
 
-  // Generate non-overlapping nest positions
-  let nestPositions = generateNonOverlappingPositions(colonyCount, 80);
-
-  // Create initial colonies
-  colonies = [];
-  for (let i = 0; i < nestPositions.length; i++) {
-    let pos = nestPositions[i];
-    colonies.push(new Colony(pos.x, pos.y));
+  // Initialize colonies
+  let nests = generateNonOverlappingPositions(colonyCount, 80);
+  for (let {x,y} of nests) {
+    colonies.push(new Colony(x,y));
   }
 
-  // Populate initial food items
-  foods = [];
-  for (let zone of foodZones) {
-    for (let i = 0; i < zone.count; i++) {
-      let fx = random(zone.x, zone.x + zone.w);
-      let fy = random(zone.y, zone.y + zone.h);
-      foods.push(new Food(fx, fy));
-    }
+  // Initialize patches and spawn
+  for (let i = 0; i < FOOD_ZONE_COUNT; i++) {
+    foodZones[i]     = null;
+    lastFoodZones[i] = null;
+    zoneFoods[i]     = [];
+    _spawnNewPatch(i);
   }
 }
 
 function draw() {
   background(220);
 
-  // Draw food zones
+  // Draw all food‐patch outlines
   noFill();
-  stroke(0, 150, 0);
+  stroke(0,150,0);
   strokeWeight(2);
   for (let z of foodZones) {
     rect(z.x, z.y, z.w, z.h);
   }
 
-  // Display dead ant markers
+  // Dead‐ant X’s
   for (let i = deadAnts.length - 1; i >= 0; i--) {
     let d = deadAnts[i];
     push();
-    stroke(100);
-    strokeWeight(2);
-    line(d.x - 5, d.y - 5, d.x + 5, d.y + 5);
-    line(d.x - 5, d.y + 5, d.x + 5, d.y - 5);
+      stroke(100);
+      strokeWeight(2);
+      line(d.x - 5, d.y - 5, d.x + 5, d.y + 5);
+      line(d.x - 5, d.y + 5, d.x + 5, d.y - 5);
     pop();
-
-    d.timer--;
-    if (d.timer <= 0) {
-      deadAnts.splice(i, 1);
-    }
+    if (--d.timer <= 0) deadAnts.splice(i,1);
   }
 
-
-  // Update and display pheromone grid
+  // Update & draw pheromones
   pheromoneGrid.update();
   pheromoneGrid.display();
 
-  // Display all food
-  // Filter out empty food and display active ones
-  foods = foods.filter(f => {
-    if (f.amount > 0) {
-      f.display();
-      return true;
-    }
-    return false; // remove from array
-  });
-
-
-  // Update and display all colonies
-  for (let colony of colonies) {
-    colony.update();
-    colony.display();
+  // Display all foods (flat array)
+  for (let f of foods) {
+    if (f.amount > 0) f.display();
   }
 
+  // Respawn any zone whose entire group is depleted
+  for (let i = 0; i < FOOD_ZONE_COUNT; i++) {
+    if (zoneFoods[i].every(f => f.amount === 0)) {
+      _spawnNewPatch(i);
+    }
+  }
 
+  // Update & draw colonies
+  for (let c of colonies) {
+    c.update();
+    c.display();
+  }
 
-  // Remove any extinct colonies
+  // Helpers & UI
   removeDeadColonies();
-
-  // Draw stats table and graphs
   drawScoreboard();
   drawExtendedGraphs();
   drawEnergyMeters();
@@ -106,182 +95,143 @@ function draw() {
   // Handle colony reproduction
   checkForNewColonies();
 
-  // Debug log of fitness every 600 frames
   if (frameCount % 600 === 0) {
     for (let c of colonies) {
-      let metrics = c.computeFitnessMetrics();
-      console.log(`Colony ${c.id} Fitness:`, metrics);
+      console.log(`Colony ${c.id} Fitness:`, c.computeFitnessMetrics());
     }
   }
 }
 
-function drawEnergyMeters() {
-  push();
-  textFont('Courier New');
-  textSize(12);
-  textAlign(LEFT, CENTER);
+// ———————————————————————————————————
+// INTERNAL: choose a new patch for index i
 
-  let startX = width - 250;
-  let startY = 10;
-  let rowHeight = 20;
-
-  fill(255, 220);
-  stroke(0);
-  rect(startX - 10, startY - 10, 240, colonies.length * rowHeight + 30);
-
-  for (let i = 0; i < colonies.length; i++) {
-    let c = colonies[i];
-    let y = startY + i * rowHeight;
-
-    let energy = c.energyHistory[c.energyHistory.length - 1] || 0;
-    let resources = c.colonyResources;
-
-    fill(0);
-    noStroke();
-    text(`Colony ${c.id}`, startX, y);
-
-    // Energy bar
-    fill(100);
-    rect(startX + 90, y - 6, 100, 10);
-    fill(0, 200, 0);
-    let energyBarWidth = constrain(map(energy, 0, 150, 0, 100), 0, 100);
-    rect(startX + 90, y - 6, energyBarWidth, 10);
-
-
-    // Colony resource bar
-    fill(100);
-    let resBarWidth = constrain(map(resources, 0, 100, 0, 100), 0, 100);
-    rect(startX + 90, y + 6, resBarWidth, 5);
-    fill(0);
-    text(nf(resources, 1, 1), startX + 195, y + 6);
-
+function _spawnNewPatch(i) {
+  // remove old foods for this zone from the flat list
+  if (zoneFoods[i].length > 0) {
+    foods = foods.filter(f => !zoneFoods[i].includes(f));
   }
 
-  pop();
-}
+  // remember old patch for this slot
+  lastFoodZones[i] = foodZones[i];
 
+  // pick a new zone avoiding nests, other patches, and its own last zone
+  let zone = _pickZone(i);
+  foodZones[i] = zone;
 
-function drawScoreboard() {
-  push();
-  textFont('Courier New');
-  textSize(12);
-  textAlign(LEFT, CENTER);
-
-  let rowHeight = 20;
-  let tableX = 10, tableY = 10;
-  const colX = [10, 70, 130, 190, 270, 360]; 
-
-  let numRows = colonies.length + 1;
-  let scoreboardWidth = colX[colX.length - 1] + 100; // Adjusted width
-  let scoreboardHeight = rowHeight * numRows + 10;
-
-  // Background
-  fill(255, 200);
-  stroke(0);
-  rect(tableX, tableY, scoreboardWidth, scoreboardHeight);
-
-  // Header
-  fill(0);
-  noStroke();
-  let headerY = tableY + rowHeight / 2;
-  text("Colony ", tableX + colX[0], headerY);
-  text("Score", tableX + colX[1], headerY);
-  text("Ants", tableX + colX[2], headerY);
-  text("Spawn", tableX + colX[3], headerY);
-  text("Trail Bias", tableX + colX[4], headerY);
-  text("Explore Bias", tableX + colX[5], headerY);
-
-  // Rows
-  for (let i = 0; i < colonies.length; i++) {
-    let c = colonies[i];
-    let rowY = tableY + rowHeight * (i + 1) + rowHeight / 2;
-
-    fill(c.color);
-    text(c.id, tableX + colX[0], rowY);
-    text(str(c.score), tableX + colX[1], rowY);
-    text(c.ants.length, tableX + colX[2], rowY);
-    text(c.genome.spawnRate, tableX + colX[3], rowY);
-    text(nf(c.genome.trailFollowingBias, 1, 2), tableX + colX[4], rowY);
-    text(nf(c.genome.explorationBias, 1, 2), tableX + colX[5], rowY);
+  // create and register five Food objects in this zone
+  zoneFoods[i] = [];
+  for (let k = 0; k < FOODS_PER_ZONE; k++) {
+    let fx = random(zone.x, zone.x + zone.w);
+    let fy = random(zone.y, zone.y + zone.h);
+    let f  = new Food(fx, fy, zone, FOOD_AMOUNT);
+    zoneFoods[i].push(f);
+    foods.push(f);
   }
-
-  pop();
 }
+
+// ———————————————————————————————————
+// pick a zone for patch i
+
+function _pickZone(i) {
+  const margin       = 100;
+  const w            = 200, h = 150;
+  const minDistNest  = 200;
+  const minDistPatch = 800;
+  const minDistLast  = 800;
+
+  let zone, attempts = 0;
+  do {
+    attempts++;
+    zone = {
+      x: random(margin, width - margin - w),
+      y: random(margin, height - margin - h),
+      w, h
+    };
+    let cx = zone.x + w/2, cy = zone.y + h/2;
+
+    // 1) avoid nests
+    let badNest = colonies.some(c =>
+      dist(c.nest.x, c.nest.y, cx, cy) < minDistNest
+    );
+
+    // 2) avoid other active patches
+    let badPatch = foodZones.some((z, j) =>
+      j !== i && z && dist(z.x + z.w/2, z.y + z.h/2, cx, cy) < minDistPatch
+    );
+
+    // 3) avoid its own last spot
+    let lastZ = lastFoodZones[i];
+    let badLast = lastZ && dist(lastZ.x + lastZ.w/2, lastZ.y + lastZ.h/2, cx, cy) < minDistLast;
+
+    if (!badNest && !badPatch && !badLast) break;
+  } while (attempts < 1000);
+
+  return zone;
+}
+
+// ———————————————————————————————————
+// Nest position generator avoiding foodZones
 
 function generateNonOverlappingPositions(count, minDist) {
   const buffer = 50;
-  const positions = [];
-  let attempts = 0, maxAttempts = 10000;
+  let positions = [];
+  let attempts = 0;
 
-  while (positions.length < count && attempts < maxAttempts) {
-    attempts++;
+  while (positions.length < count && attempts++ < 10000) {
     let x = random(100, width - 100);
     let y = random(100, height - 100);
 
-    // Avoid food zones
+    // avoid all current patches
     if (foodZones.some(z =>
-      x >= z.x - buffer && x <= z.x + z.w + buffer &&
-      y >= z.y - buffer && y <= z.y + z.h + buffer
+        x >= z.x - buffer && x <= z.x + z.w + buffer &&
+        y >= z.y - buffer && y <= z.y + z.h + buffer
     )) continue;
 
-    // Avoid other nests
-    let ok = positions.every(p =>
-      dist(p.x, p.y, x, y) >= minDist
-    );
-    if (ok) positions.push({ x, y });
+    // avoid existing nests
+    if (positions.every(p => dist(p.x, p.y, x, y) >= minDist)) {
+      positions.push({ x, y });
+    }
   }
-
   return positions;
 }
 
-// sketch.js
-
 function checkForNewColonies() {
-  const maxColonies = 20;
-  const spawnThreshold = 100;   // score needed to bud
-  const minNestDist = 100;   // min distance between any two nests
-  const maxSpawnRadius = 200;   // how far from parent it can bud
-  const avoidFoodDist = 50;    // min distance from any food
-  const maxAttempts = 100;
+  const maxColonies    = 20;
+  const minNestDist    = 100;
+  const maxSpawnRadius = 200;
+  const avoidFoodDist  = 50;
+  const maxAttempts    = 100;
 
   for (let i = colonies.length - 1; i >= 0; i--) {
     let parent = colonies[i];
     if (parent.colonyResources >= 100 && colonies.length < maxColonies) {
-      let newX, newY, attempts = 0;
-
+      let attempts = 0, newX, newY;
       do {
-        let theta = random(0, TWO_PI);
-        let r = random(minNestDist, maxSpawnRadius);
-        newX = constrain(parent.nest.x + cos(theta) * r, 50, width - 50);
-        newY = constrain(parent.nest.y + sin(theta) * r, 50, height - 50);
+        let theta = random(TWO_PI);
+        let r     = random(minNestDist, maxSpawnRadius);
+        newX = constrain(parent.nest.x + cos(theta)*r, 50, width-50);
+        newY = constrain(parent.nest.y + sin(theta)*r, 50, height-50);
         attempts++;
-      }
-      while (
+      } while (
         attempts < maxAttempts &&
         (
           colonies.some(c => dist(c.nest.x, c.nest.y, newX, newY) < minNestDist) ||
+          // <-- here: test every single Food in the flat array:
           foods.some(f => dist(f.pos.x, f.pos.y, newX, newY) < avoidFoodDist)
         )
       );
 
       if (attempts < maxAttempts) {
         let child = new Colony(newX, newY, parent);
-        child.genome = {
-          ...parent.genome,
-          antSpeed: constrain(parent.genome.antSpeed + random(-0.1, 0.1), 0.5, 2.0),
-          pheromoneStrength: max(0.5, parent.genome.pheromoneStrength + random(-0.2, 0.2)),
-          spawnRate: constrain(parent.genome.spawnRate + floor(random(-10, 10)), 30, 180)
-        };
+        // … genome tweak …
         child.colonyResources = 5;
         colonies.push(child);
-
-        // ✅ NEW: deduct 80 colonyResources as reproduction cost
         parent.colonyResources -= 80;
       }
     }
-
   }
 }
+
 
 function removeDeadColonies() {
   for (let i = colonies.length - 1; i >= 0; i--) {
@@ -291,57 +241,96 @@ function removeDeadColonies() {
   }
 }
 
+// (Include your drawScoreboard, drawExtendedGraphs, drawEnergyMeters here)
+
+function drawScoreboard() {
+  push();
+    textFont('Courier New');
+    textSize(12);
+    textAlign(LEFT, CENTER);
+    let rowH = 20, x = 10, y = 10;
+    let cols = [0, 60, 120, 180, 260, 350];
+    fill(255,200); stroke(0);
+    rect(x, y, cols[cols.length-1]+80, rowH*(colonies.length+1)+10);
+    noStroke(); fill(0);
+    text("Colony", x+cols[0], y+rowH/2);
+    text("Ants",   x+cols[2], y+rowH/2);
+    text("Spawn",  x+cols[3], y+rowH/2);
+    text("Trail Bias",   x+cols[4], y+rowH/2);
+    text("Explore Bias", x+cols[5], y+rowH/2);
+    for (let i=0; i<colonies.length; i++) {
+      let c = colonies[i];
+      let ry = y + rowH*(i+1) + rowH/2;
+      fill(c.color);
+      text(c.id, x+cols[0], ry);
+      text(c.ants.length, x+cols[2], ry);
+      text(c.genome.spawnRate, x+cols[3], ry);
+      text(nf(c.genome.trailFollowingBias,1,2), x+cols[4], ry);
+      text(nf(c.genome.explorationBias,1,2), x+cols[5], ry);
+    }
+  pop();
+}
+
 function drawExtendedGraphs() {
   push();
-
-  let margin = 10;
-  let graphWidth = 380;
-  let graphHeight = 120;
-  let graphX = margin;
-  let graphY = height - graphHeight - margin;
-
-  // Background
-  fill(255, 200);
-  stroke(0);
-  rect(graphX, graphY, graphWidth, graphHeight);
-
-  // Clip to our graph area
-  drawingContext.save();
-  drawingContext.beginPath();
-  drawingContext.rect(graphX, graphY, graphWidth, graphHeight);
-  drawingContext.clip();
-
-  // Draw lines
-  for (let i = 0; i < colonies.length; i++) {
-    let col = colonies[i];
-    let popHistory = col.populationHistory;
-    let energyHistory = col.energyHistory;
-
-    // Population (solid)
-    stroke(col.color);
-    noFill();
-    beginShape();
-    for (let j = 0; j < popHistory.length; j++) {
-      let x = map(j, 0, popHistory.length - 1, graphX, graphX + graphWidth);
-      let y = map(popHistory[j], 0, 50, graphY + graphHeight, graphY);
-      vertex(x, y);
+    let m=10, w=380, h=120, gx=m, gy=height-h-m;
+    fill(255,200); stroke(0);
+    rect(gx, gy, w, h);
+    drawingContext.save();
+    drawingContext.beginPath();
+    drawingContext.rect(gx, gy, w, h);
+    drawingContext.clip();
+    for (let c of colonies) {
+      // population history
+      stroke(c.color); noFill();
+      beginShape();
+      for (let j=0; j<c.populationHistory.length; j++) {
+        let x = map(j, 0, c.populationHistory.length-1, gx, gx+w);
+        let y = map(c.populationHistory[j], 0, 50, gy+h, gy);
+        vertex(x, y);
+      }
+      endShape();
+      // energy history
+      stroke(red(c.color), green(c.color), blue(c.color), 150);
+      beginShape();
+      for (let j=0; j<c.energyHistory.length; j++) {
+        let x = map(j, 0, c.energyHistory.length-1, gx, gx+w);
+        let y = map(c.energyHistory[j], 0, 150, gy+h, gy);
+        vertex(x, y);
+      }
+      endShape();
     }
-    endShape();
+    drawingContext.restore();
+  pop();
+}
 
-    // Energy (transparent)
-    stroke(red(col.color), green(col.color), blue(col.color), 150);
-    beginShape();
-    for (let j = 0; j < energyHistory.length; j++) {
-      let x = map(j, 0, energyHistory.length - 1, graphX, graphX + graphWidth);
-      let y = map(energyHistory[j], 0, 150, graphY + graphHeight, graphY);
-      vertex(x, y);
+function drawEnergyMeters() {
+  push();
+    textFont('Courier New');
+    textSize(12);
+    textAlign(LEFT, CENTER);
+    let startX = width - 250, startY = 10, rowH = 20;
+    fill(255,220); stroke(0);
+    rect(startX-10, startY-10, 240, colonies.length*rowH+30);
+    noStroke(); fill(0);
+    for (let i=0; i<colonies.length; i++) {
+      let c = colonies[i], y = startY + i*rowH;
+      let energy    = c.energyHistory.slice(-1)[0] || 0;
+      let resources = c.colonyResources;
+      text(`Colony ${c.id}`, startX, y);
+      // energy bar
+      fill(100);
+      rect(startX+90, y-6, 100, 10);
+      fill(0,200,0);
+      let ebw = constrain(map(energy,0,150,0,100),0,100);
+      rect(startX+90, y-6, ebw, 10);
+      // resources bar
+      fill(100);
+      let rbw = constrain(map(resources,0,100,0,100),0,100);
+      rect(startX+90, y+6, rbw, 5);
+      fill(0);
+      text(nf(resources,1,1), startX+195, y+6);
     }
-    endShape();
-  }
-
-  // Restore so future drawing isn’t clipped
-  drawingContext.restore();
-
   pop();
 }
 
