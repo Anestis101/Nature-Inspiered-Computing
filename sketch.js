@@ -245,95 +245,176 @@ function removeDeadColonies() {
 
 function drawScoreboard() {
   push();
-    textFont('Courier New');
-    textSize(12);
-    textAlign(LEFT, CENTER);
-    let rowH = 20, x = 10, y = 10;
-    let cols = [0, 60, 120, 180, 260, 350];
-    fill(255,200); stroke(0);
-    rect(x, y, cols[cols.length-1]+80, rowH*(colonies.length+1)+10);
-    noStroke(); fill(0);
-    text("Colony", x+cols[0], y+rowH/2);
-    text("Ants",   x+cols[2], y+rowH/2);
-    text("Spawn",  x+cols[3], y+rowH/2);
-    text("Trail Bias",   x+cols[4], y+rowH/2);
-    text("Explore Bias", x+cols[5], y+rowH/2);
-    for (let i=0; i<colonies.length; i++) {
-      let c = colonies[i];
-      let ry = y + rowH*(i+1) + rowH/2;
-      fill(c.color);
-      text(c.id, x+cols[0], ry);
-      text(c.ants.length, x+cols[2], ry);
-      text(c.genome.spawnRate, x+cols[3], ry);
-      text(nf(c.genome.trailFollowingBias,1,2), x+cols[4], ry);
-      text(nf(c.genome.explorationBias,1,2), x+cols[5], ry);
-    }
+  textFont('Helvetica');
+  textSize(14);
+  textAlign(LEFT, CENTER);
+
+  let rowHeight = 20;
+  let paddingX = 15;
+  let tableX = 10, tableY = 10;
+  const colX = [0, 60, 120, 180, 260, 350];
+
+  let numRows = colonies.length + 1;
+  let scoreboardWidth = colX[colX.length - 1] + 100;
+  let scoreboardHeight = rowHeight * numRows + 5;
+
+  // Background with rounded corners
+  fill(255, 220);
+  stroke(0);
+  strokeWeight(1.2);
+  rect(tableX, tableY, scoreboardWidth + paddingX * 2, scoreboardHeight, 6);
+
+  // Header with shadowed text
+  let headerY = tableY + rowHeight / 2;
+  fill(0);
+  noStroke();
+
+  text("Colony",        tableX + colX[0] + paddingX, headerY);
+  text("Score",         tableX + colX[1] + paddingX, headerY);
+  text("Ants",          tableX + colX[2] + paddingX, headerY);
+  text("Spawn",         tableX + colX[3] + paddingX, headerY);
+  text("Trail Bias",    tableX + colX[4] + paddingX, headerY);
+  text("Explore Bias",  tableX + colX[5] + paddingX, headerY);
+
+  // Rows
+  for (let i = 0; i < colonies.length; i++) {
+    let c = colonies[i];
+    let rowY = tableY + rowHeight * (i + 1) + rowHeight / 2;
+
+    fill(c.color);
+    text(c.id, tableX + colX[0] + paddingX, rowY);
+    fill(0);
+    text(nf(c.score, 1, 1), tableX + colX[1] + paddingX, rowY);
+    text(c.ants.length, tableX + colX[2] + paddingX, rowY);
+    text(c.genome.spawnRate, tableX + colX[3] + paddingX, rowY);
+    text(nf(c.genome.trailFollowingBias, 1, 2), tableX + colX[4] + paddingX, rowY);
+    text(nf(c.genome.explorationBias, 1, 2), tableX + colX[5] + paddingX, rowY);
+
+    stroke(230);
+    line(tableX + paddingX, rowY + rowHeight / 2 - 2, tableX + scoreboardWidth + paddingX, rowY + rowHeight / 2 - 2);
+  }
   pop();
 }
 
 function drawExtendedGraphs() {
   push();
-    let m=10, w=380, h=120, gx=m, gy=height-h-m;
-    fill(255,200); stroke(0);
-    rect(gx, gy, w, h);
-    drawingContext.save();
-    drawingContext.beginPath();
-    drawingContext.rect(gx, gy, w, h);
-    drawingContext.clip();
-    for (let c of colonies) {
-      // population history
-      stroke(c.color); noFill();
-      beginShape();
-      for (let j=0; j<c.populationHistory.length; j++) {
-        let x = map(j, 0, c.populationHistory.length-1, gx, gx+w);
-        let y = map(c.populationHistory[j], 0, 50, gy+h, gy);
-        vertex(x, y);
-      }
-      endShape();
-      // energy history
-      stroke(red(c.color), green(c.color), blue(c.color), 150);
-      beginShape();
-      for (let j=0; j<c.energyHistory.length; j++) {
-        let x = map(j, 0, c.energyHistory.length-1, gx, gx+w);
-        let y = map(c.energyHistory[j], 0, 150, gy+h, gy);
-        vertex(x, y);
-      }
-      endShape();
+
+  const padding = 10;
+  const graphWidth = 400;
+  const graphHeight = 190;
+  const graphX = padding;
+  const graphY = height - graphHeight - padding;
+  const maxPop = 50;
+  const yPadding = 12;
+
+  const graphTop = graphY + yPadding;
+  const graphBottom = graphY + graphHeight - yPadding;
+
+  // Font and style
+  textFont('Helvetica');
+  textSize(14);
+  textAlign(LEFT, CENTER);
+
+  // Background with rounded corners
+  fill(255, 220);
+  stroke(0);
+  strokeWeight(1.2);
+  rect(graphX, graphY, graphWidth, graphHeight, 6);
+
+  // Title inside top-left of the graph box
+  let labelX = graphX + 14;      // slight shift right from Y labels
+  let labelY = graphY + -10;      // high enough to stay above plotted lines
+
+  textAlign(LEFT, CENTER);
+  fill(0);
+  text("Population", labelX, labelY);
+
+  // Grid lines and Y-axis labels
+  textAlign(LEFT, CENTER);
+  for (let i = 0; i <= maxPop; i += 10) {
+    const y = map(i, 0, maxPop, graphBottom, graphTop);
+    stroke(230);
+    line(graphX + padding, y, graphX + graphWidth - padding, y);
+    noStroke();
+    fill(80);
+    text(i, graphX + 3, y);
+  }
+
+  // Clipping area
+  drawingContext.save();
+  drawingContext.beginPath();
+  drawingContext.rect(graphX, graphY, graphWidth, graphHeight);
+  drawingContext.clip();
+
+  // Plot population curves
+  for (let col of colonies) {
+    stroke(col.color);
+    noFill();
+    beginShape();
+    for (let j = 0; j < col.populationHistory.length; j++) {
+      const x = map(j, 0, col.populationHistory.length - 1, graphX + padding, graphX + graphWidth - padding);
+      const yVal = constrain(col.populationHistory[j], 0, maxPop); // just in case
+      const y = map(yVal, 0, maxPop, graphBottom, graphTop);
+      curveVertex(x, y);
     }
-    drawingContext.restore();
+    endShape();
+  }
+
+  drawingContext.restore();
   pop();
 }
 
 function drawEnergyMeters() {
   push();
-    textFont('Courier New');
-    textSize(12);
-    textAlign(LEFT, CENTER);
-    let startX = width - 250, startY = 10, rowH = 20;
-    fill(255,220); stroke(0);
-    rect(startX-10, startY-10, 240, colonies.length*rowH+30);
-    noStroke(); fill(0);
-    for (let i=0; i<colonies.length; i++) {
-      let c = colonies[i], y = startY + i*rowH;
-      let energy    = c.energyHistory.slice(-1)[0] || 0;
-      let resources = c.colonyResources;
-      text(`Colony ${c.id}`, startX, y);
-      // energy bar
-      fill(100);
-      rect(startX+90, y-6, 100, 10);
-      fill(0,200,0);
-      let ebw = constrain(map(energy,0,150,0,100),0,100);
-      rect(startX+90, y-6, ebw, 10);
-      // resources bar
-      fill(100);
-      let rbw = constrain(map(resources,0,100,0,100),0,100);
-      rect(startX+90, y+6, rbw, 5);
-      fill(0);
-      text(nf(resources,1,1), startX+195, y+6);
-    }
+  textFont('Helvetica');
+  textSize(14);
+  textAlign(LEFT, CENTER);
+
+  let padding = 15;
+  let startX = width - 250;
+  let startY = 20;
+  let rowHeight = 20;
+  let boxWidth = 240;
+  let boxHeight = colonies.length * rowHeight + 10;
+
+  // Background with rounded corners
+  fill(255, 220);
+  stroke(0);
+  strokeWeight(1.2);
+  rect(startX - padding, startY - padding, boxWidth, boxHeight, 6);
+
+  for (let i = 0; i < colonies.length; i++) {
+    let c = colonies[i];
+    let y = startY + i * rowHeight;
+
+    let energy = c.energyHistory[c.energyHistory.length - 1] || 0;
+    let resources = c.colonyResources;
+
+    fill(0);
+    noStroke();
+    text(`Colony ${c.id}`, startX, y);
+
+    // Energy bar
+    fill(100);
+    rect(startX + 90, y - 6, 100, 10);
+    fill(0, 200, 0);
+    let energyBarWidth = constrain(map(energy, 0, 150, 0, 100), 0, 100);
+    rect(startX + 90, y - 6, energyBarWidth, 10);
+
+    // Colony resource bar
+    fill(100);
+    let resBarWidth = constrain(map(resources, 0, 100, 0, 100), 0, 100);
+    rect(startX + 90, y + 6, resBarWidth, 5);
+
+    fill(0);
+    text(nf(resources, 1, 1), startX + 195, y + 6);
+
+    stroke(230);
+    line(startX - padding, y + rowHeight / 2 + 4, startX - padding + boxWidth, y + rowHeight / 2 + 4);
+  }
+
   pop();
 }
-
 function drawAgeTable() {
   const padding     = 10;
   const colWidths   = [80, 60];               // ID col, Avg-Age col
@@ -342,7 +423,7 @@ function drawAgeTable() {
   const availableH  = height - padding * 2;   // total vertical space
   let   rowH        = 20;                     // desired row height
 
-  // if table would overflow, shrink rowH to fit
+  // Adjust if too tall
   let tableH = numRows * rowH + padding;
   if (tableH > availableH) {
     rowH   = (availableH - padding) / numRows;
@@ -355,18 +436,25 @@ function drawAgeTable() {
 
   push();
     // background
-    fill(255, 200);
+    fill(255, 220);  // slightly more opaque
     stroke(0);
-    rect(tableX, tableY, tableWidth, tableH);
+    strokeWeight(1.2);
+    rect(tableX, tableY, tableWidth, tableH, 6); // rounded corners
 
-    // header
+    // header (with shadowed text)
     noStroke();
-    fill(0);
-    textFont('Courier New');
-    textSize(rowH * 0.6);
+    textFont('Helvetica');  // softer font
+    textSize(14);
     textAlign(LEFT, CENTER);
     let y = tableY + rowH / 2 + padding / 2;
-    text("Colony ID", tableX + padding,       y);
+
+    // Drop shadow effect
+    fill(0, 100);
+    text("Colony ID", tableX + padding + 1, y + 1);
+    text("Avg Age",   tableX + padding + colWidths[0] + 1, y + 1);
+
+    fill(0);
+    text("Colony ID", tableX + padding, y);
     text("Avg Age",   tableX + padding + colWidths[0], y);
 
     // rows
@@ -378,8 +466,13 @@ function drawAgeTable() {
       const rowY = tableY + rowH * (i + 1) + rowH / 2 + padding / 2;
 
       fill(c.color);
-      text(c.id,  tableX + padding,             rowY);
+      text(c.id,  tableX + padding, rowY);
+      fill(0);
       text(avg,   tableX + padding + colWidths[0], rowY);
+
+      // Optional: horizontal divider
+      stroke(230);
+      line(tableX + padding, rowY + rowH / 2 - 2, tableX + tableWidth - padding, rowY + rowH / 2 - 2);
     }
   pop();
 }
