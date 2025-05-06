@@ -9,11 +9,11 @@ let deadAnts = [];
 
 
 let foodZones = [
-  { x: 1000, y:  80, w: 150, h: 100, count: 50 },
-  { x: 1400, y: 100, w: 130, h: 120, count: 60 },
-  { x: 600, y:  50, w: 120, h: 100, count: 55 },
-  { x: 500, y: 600, w: 160, h:  90, count: 50 },
-  { x: 600, y: 350, w: 140, h: 110, count: 60 }
+  { x: 1500, y:  80, w: 150, h: 100, count: 50 },
+  { x: 1000, y: 400, w: 130, h: 120, count: 60 },
+  { x: 500, y:  50, w: 120, h: 100, count: 55 },
+  { x: 400, y: 600, w: 160, h:  90, count: 50 },
+  { x: 1450, y: 550, w: 140, h: 110, count: 60 }
 ];
 
 function setup() {

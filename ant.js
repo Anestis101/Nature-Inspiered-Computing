@@ -21,6 +21,9 @@ class Ant {
     this.state = "searching";
     this.lastResourcePos = null;  // Remember big patch position
     this.foodCarried = 0;
+    // how many units of food this ant can carry
+    this.carryCapacity = 2;
+
 
     // How far ahead to sample pheromone
     this.senseDistance = 20;
@@ -59,20 +62,28 @@ class Ant {
       if (target) {
         this.moveTowards(target.pos);
         if (this.pos.dist(target.pos) < 5) {
-          this.foodCarried = target.pickup();
+          // pick up up to carryCapacity
+          let picked = 0;
+          while (picked < this.carryCapacity && target.amount > 0) {
+            picked += target.pickup();
+          }
+          this.foodCarried = picked;
+        
           if (this.foodCarried > 0) {
-            // If patch still has plenty left, remember it
+            // if it's a big patch, remember it…
             let remaining = foods
               .filter(f => f.zone === target.zone && f.amount > 0)
               .length;
-            if (remaining > 20) {  // threshold for “huge”
+            if (remaining > 20) {
               this.lastResourcePos = target.pos.copy();
             }
+        
             this.state = "returning";
             this.speed = this.carryingSpeed;
             this.consumptionMultiplier = 2;
           }
         }
+        
       } else {
         // no food: follow pheromone or explore
         if (!this.followTrail()) {
@@ -88,25 +99,16 @@ class Ant {
         this.colony.genome.pheromoneStrength
       );
       if (this.pos.dist(this.colony.nest) < 10) {
-        // deposit any carried food
         if (this.foodCarried > 0) {
           this.colony.addFood(this.foodCarried);
           this.foodCarried = 0;
         }
-      
-        // recover full energy at nest
         this.energy = this.maxEnergy;
-      
-        // resume normal searching or resource-gathering behavior
-        if (this.lastResourcePos) {
-          this.state = "goingToResource";
-        } else {
-          this.state = "searching";
-        }
-        
+        this.state = this.lastResourcePos ? "goingToResource" : "searching";
         this.speed = this.normalSpeed;
         this.consumptionMultiplier = 1;
       }
+      
       
     }
 
