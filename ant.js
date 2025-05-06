@@ -13,9 +13,9 @@ class Ant {
     this.speed = this.normalSpeed;
 
     // Energy
-    this.maxEnergy = 100;
+    this.maxEnergy = 150;
     this.energy = this.maxEnergy;
-    this.consumptionMultiplier = 1;
+    this.consumptionMultiplier = 0.5;
 
     // State: "searching", "returning", or "goingToResource"
     this.state = "searching";
@@ -41,7 +41,7 @@ class Ant {
     }
 
     // 1) drain energy
-    this.energy -= 0.2 * this.consumptionMultiplier;
+    this.energy -= 0.05 * this.consumptionMultiplier;
 
     // 2) if starving while carrying, drop & head home
     if (this.energy < 20 && this.foodCarried > 0) {
@@ -88,19 +88,26 @@ class Ant {
         this.colony.genome.pheromoneStrength
       );
       if (this.pos.dist(this.colony.nest) < 10) {
-        // deposit
-        this.colony.addFood(this.foodCarried);
-        this.foodCarried = 0;
+        // deposit any carried food
+        if (this.foodCarried > 0) {
+          this.colony.addFood(this.foodCarried);
+          this.foodCarried = 0;
+        }
+      
+        // recover full energy at nest
         this.energy = this.maxEnergy;
-        // if we remembered a big patch, go there next
+      
+        // resume normal searching or resource-gathering behavior
         if (this.lastResourcePos) {
           this.state = "goingToResource";
         } else {
           this.state = "searching";
         }
+        
         this.speed = this.normalSpeed;
         this.consumptionMultiplier = 1;
       }
+      
     }
 
     // 4) move & wrap
