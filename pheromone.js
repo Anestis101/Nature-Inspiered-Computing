@@ -1,4 +1,3 @@
-// pheromone.js
 
 class PheromoneGrid {
   constructor(w, h, cellSize) {
@@ -49,7 +48,7 @@ class PheromoneGrid {
     }
   }
 
-  // Deposit 'amount' under a specific colonyId
+  
   deposit(x, y, amount, colonyId) {
     let c = floor(x / this.cellSize),
         r = floor(y / this.cellSize);
@@ -59,7 +58,7 @@ class PheromoneGrid {
     }
   }
 
-  // Get summed intensity in cell, optionally filtering to a rootId
+  
   getIntensity(x, y, rootId = null) {
     let c = floor(x / this.cellSize),
         r = floor(y / this.cellSize);

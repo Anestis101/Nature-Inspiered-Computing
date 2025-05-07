@@ -1,35 +1,35 @@
-// sketch.js
 
-let colonies       = [];   // your Colony objects
+
+let colonies       = [];   
 let pheromoneGrid  = null;
 let colonyCount    = 10;
 let deadAnts       = [];
 
 // —– food‐patch settings —–
 const FOOD_ZONE_COUNT = 5;
-const FOOD_AMOUNT     = 2;   // each Food object starts with 5 units
+const FOOD_AMOUNT     = 2;   // each Food object starts with 2 units
 const FOODS_PER_ZONE  = 100;
 
 let foodZones      = [];   // current patches
 let lastFoodZones  = [];   // previous patch for each slot
 
-// foods is flat so ant.js still sees it as before
+
 let foods          = [];   
 
-// zoneFoods[i] holds exactly the 5 Food objects for patch i
+
 let zoneFoods      = [];
 
 function setup() {
   createCanvas(2000, 1000);
   pheromoneGrid = new PheromoneGrid(width, height, 10);
 
-  // Initialize colonies
+  // Initialization of  colonies
   let nests = generateNonOverlappingPositions(colonyCount, 80);
   for (let {x,y} of nests) {
     colonies.push(new Colony(x,y));
   }
 
-  // Initialize patches and spawn
+  // Initialization of  patches and spawn
   for (let i = 0; i < FOOD_ZONE_COUNT; i++) {
     foodZones[i]     = null;
     lastFoodZones[i] = null;
@@ -41,7 +41,7 @@ function setup() {
 function draw() {
   background(220);
 
-  // Draw all food‐patch outlines
+  // Drawing  all food‐patch outlines
   noFill();
   stroke(0,150,0);
   strokeWeight(2);
@@ -61,11 +61,11 @@ function draw() {
     if (--d.timer <= 0) deadAnts.splice(i,1);
   }
 
-  // Update & draw pheromones
+  
   pheromoneGrid.update();
   pheromoneGrid.display();
 
-  // Display all foods (flat array)
+  
   for (let f of foods) {
     if (f.amount > 0) f.display();
   }
@@ -102,23 +102,22 @@ function draw() {
   }
 }
 
-// ———————————————————————————————————
-// INTERNAL: choose a new patch for index i
+
 
 function _spawnNewPatch(i) {
-  // remove old foods for this zone from the flat list
+  
   if (zoneFoods[i].length > 0) {
     foods = foods.filter(f => !zoneFoods[i].includes(f));
   }
 
-  // remember old patch for this slot
+  
   lastFoodZones[i] = foodZones[i];
 
   // pick a new zone avoiding nests, other patches, and its own last zone
   let zone = _pickZone(i);
   foodZones[i] = zone;
 
-  // create and register five Food objects in this zone
+  
   zoneFoods[i] = [];
   for (let k = 0; k < FOODS_PER_ZONE; k++) {
     let fx = random(zone.x, zone.x + zone.w);
@@ -129,8 +128,7 @@ function _spawnNewPatch(i) {
   }
 }
 
-// ———————————————————————————————————
-// pick a zone for patch i
+
 
 function _pickZone(i) {
   const margin       = 100;
@@ -169,7 +167,7 @@ function _pickZone(i) {
   return zone;
 }
 
-// ———————————————————————————————————
+
 // Nest position generator avoiding foodZones
 
 function generateNonOverlappingPositions(count, minDist) {
@@ -216,14 +214,14 @@ function checkForNewColonies() {
         attempts < maxAttempts &&
         (
           colonies.some(c => dist(c.nest.x, c.nest.y, newX, newY) < minNestDist) ||
-          // <-- here: test every single Food in the flat array:
+          
           foods.some(f => dist(f.pos.x, f.pos.y, newX, newY) < avoidFoodDist)
         )
       );
 
       if (attempts < maxAttempts) {
         let child = new Colony(newX, newY, parent);
-        // … genome tweak …
+        
         child.colonyResources = 5;
         colonies.push(child);
         parent.colonyResources -= 80;
@@ -241,7 +239,7 @@ function removeDeadColonies() {
   }
 }
 
-// (Include your drawScoreboard, drawExtendedGraphs, drawEnergyMeters here)
+
 
 function drawScoreboard() {
   push();
@@ -258,7 +256,7 @@ function drawScoreboard() {
   let scoreboardWidth = colX[colX.length - 1] + 100;
   let scoreboardHeight = rowHeight * numRows + 5;
 
-  // Background with rounded corners
+  
   fill(255, 220);
   stroke(0);
   strokeWeight(1.2);
@@ -321,9 +319,9 @@ function drawExtendedGraphs() {
   strokeWeight(1.2);
   rect(graphX, graphY, graphWidth, graphHeight, 6);
 
-  // Title inside top-left of the graph box
-  let labelX = graphX + 14;      // slight shift right from Y labels
-  let labelY = graphY + -10;      // high enough to stay above plotted lines
+  
+  let labelX = graphX + 14;      
+  let labelY = graphY + -10;      
 
   textAlign(LEFT, CENTER);
   fill(0);
@@ -353,7 +351,7 @@ function drawExtendedGraphs() {
     beginShape();
     for (let j = 0; j < col.populationHistory.length; j++) {
       const x = map(j, 0, col.populationHistory.length - 1, graphX + padding, graphX + graphWidth - padding);
-      const yVal = constrain(col.populationHistory[j], 0, maxPop); // just in case
+      const yVal = constrain(col.populationHistory[j], 0, maxPop); 
       const y = map(yVal, 0, maxPop, graphBottom, graphTop);
       curveVertex(x, y);
     }
@@ -374,7 +372,7 @@ function drawEnergyMeters() {
   let startX = width - 250;
   let startY = 20;
   let rowHeight = 20;
-  let boxWidth = 240;
+  let boxWidth = 250;
   let boxHeight = colonies.length * rowHeight + 10;
 
   // Background with rounded corners
@@ -423,14 +421,14 @@ function drawAgeTable() {
   const availableH  = height - padding * 2;   // total vertical space
   let   rowH        = 20;                     // desired row height
 
-  // Adjust if too tall
+  
   let tableH = numRows * rowH + padding;
   if (tableH > availableH) {
     rowH   = (availableH - padding) / numRows;
     tableH = availableH;
   }
 
-  // anchor to bottom-right
+  
   const tableX = width  - tableWidth  - padding;
   const tableY = height - tableH      - padding;
 
@@ -470,7 +468,7 @@ function drawAgeTable() {
       fill(0);
       text(avg,   tableX + padding + colWidths[0], rowY);
 
-      // Optional: horizontal divider
+      
       stroke(230);
       line(tableX + padding, rowY + rowH / 2 - 2, tableX + tableWidth - padding, rowY + rowH / 2 - 2);
     }

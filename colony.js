@@ -1,11 +1,11 @@
-// colony.js
+
 
 class Colony {
   constructor(nestX, nestY, parentColony = null) {
     this.nest = createVector(nestX, nestY);
     this.ants = [];
 
-    // Assign unique colony ID
+    
     if (parentColony) {
       parentColony.subColonyCount += 1;
       this.id = `${parentColony.id}.${parentColony.subColonyCount}`;
@@ -35,7 +35,7 @@ class Colony {
     this.colonyResources = 50;
     this.consumptionRate  = 0.00025;
     this.antCost          = 5;
-    this.spawnThreshold   = 50;   // must have at least 50 total to spawn
+    this.spawnThreshold   = 50;   
 
     // Start with 5 ants
     for (let i = 0; i < 5; i++) {
@@ -55,16 +55,16 @@ class Colony {
     // Consume resources per ant
     this.colonyResources -= this.ants.length * this.consumptionRate;
     if (this.colonyResources < 0 && this.ants.length > 0) {
-      // starve one ant
+      
       this.ants.splice(floor(random(this.ants.length)), 1);
     }
 
     if (this.ants.length < 50 && this.colonyResources >= 20) {
       this.spawnTimer--;
-      // NEW: require at least spawnThreshold total resources
+      
       if (this.spawnTimer <= 0
           && this.colonyResources >= this.spawnThreshold) {
-        // pay the per‐ant cost
+        
         this.colonyResources -= this.antCost;
         this.spawnTimer = this.genome.spawnRate;
         this.spawnAnt();

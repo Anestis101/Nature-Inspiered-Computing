@@ -1,4 +1,3 @@
-// ant.js
 
 class Ant {
   constructor(x, y, colony) {
